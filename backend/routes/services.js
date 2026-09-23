@@ -5,7 +5,8 @@ const { requireAuth } = require('../middleware/authMiddleware');
 const { requirePermission } = require('../middleware/authorization');
 
 function requireAdminRead(req, res, next) {
-	return req.query.admin === 'true' ? requireAuth(req, res, next) : next();
+	if (req.query.admin !== 'true') return next();
+	return requireAuth(req, res, () => requirePermission('services:manage')(req, res, next));
 }
 
 const router = express.Router();

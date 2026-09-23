@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { Gallery, GalleryItem, RevisionRequest, Package } = require('../models');
+const { getSignedUrl } = require('../services/storageService');
 const { notifyProjectTeamAndManagers } = require('../services/notificationService');
 
 function hashToken(token) { return crypto.createHash('sha256').update(String(token || '')).digest('hex'); }
@@ -85,8 +86,9 @@ async function downloadItem(req, res, next) {
   try {
     const gallery = await getAuthorizedGallery(req.params.token);
     if (!gallery) return res.status(404).json({ success: false, message: 'Gallery not found or access has expired.' });
-    const item = await GalleryItem.findOne({ _id: req.params.itemId, gallery: gallery._id, downloadable: true }).select('editedFileUrl fileUrl');
+    const item = await GalleryItem.findOne({ _id: req.params.itemId, gallery: gallery._id, downloadable: true }).select('editedFileUrl fileUrl objectKey storageKey storageProvider');
     if (!item) return res.status(404).json({ success: false, message: 'This media is not available for download.' });
+    if (item.storageProvider === 'cloudflare-r2') return res.redirect(await getSignedUrl(item.objectKey || item.storageKey));
     res.redirect(item.editedFileUrl || item.fileUrl);
   } catch (error) { next(error); }
 }

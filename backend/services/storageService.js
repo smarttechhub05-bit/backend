@@ -50,6 +50,10 @@ async function uploadFile(file, options = {}) {
     throw new Error('A file buffer is required for upload.');
   }
 
+  if (process.env.NODE_ENV === 'production' && !isR2Configured()) {
+    throw new Error('Cloudflare R2 storage is not configured for production.');
+  }
+
   if (isR2Configured()) {
     const client = getR2Client();
     if (!client) throw new Error('Cloudflare R2 credentials are incomplete.');
@@ -137,6 +141,7 @@ async function getSignedUrl(objectKey, expiresIn = R2_SIGNED_URL_TTL) {
 }
 
 function storageReference(file, options = {}) {
+  if (process.env.NODE_ENV === 'production' && !isR2Configured()) throw new Error('Cloudflare R2 storage is not configured for production.');
   const key = options.objectKey || normalizeObjectKey(file.originalname || file.name || 'upload', options.prefix || 'gallery');
   return { provider: isR2Configured() ? 'cloudflare-r2' : 'local-development', key, objectKey: key, url: isR2Configured() ? `${R2_ENDPOINT.replace(/\/$/, '')}/${R2_BUCKET_NAME}/${key}` : `/assets/uploads/${path.basename(key)}` };
 }

@@ -14,5 +14,6 @@ module.exports = {
   WebsiteSettings: require('./WebsiteSettings'),
   AnalyticsEvent: require('./AnalyticsEvent'),
   Notification: require('./Notification'),
-  RevisionRequest: require('./RevisionRequest')
+  RevisionRequest: require('./RevisionRequest'),
+  ContactInquiry: require('./ContactInquiry')
 };

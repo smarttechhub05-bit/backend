@@ -19,16 +19,17 @@ function validateBookingInput(body, partial = false) {
   return errors;
 }
 
-async function validateReferences(serviceId, packageId) {
-  if (!mongoose.isValidObjectId(serviceId)) return { message: 'Invalid service ID' };
-  const service = await Service.findById(serviceId);
-  if (!service) return { message: 'Service not found' };
+async function validateReferences(serviceId, packageId, activeOnly = false) {
+  if (!mongoose.isValidObjectId(serviceId)) return { error: 'Invalid service ID' };
+  const service = await Service.findOne({ _id: serviceId, ...(activeOnly ? { active: true } : {}) });
+  if (!service) return { error: 'Service not found' };
   if (packageId) {
-    if (!mongoose.isValidObjectId(packageId)) return { message: 'Invalid package ID' };
-    const packageItem = await Package.findOne({ _id: packageId, service: serviceId });
-    if (!packageItem) return { message: 'Package not found for this service' };
+    if (!mongoose.isValidObjectId(packageId)) return { error: 'Invalid package ID' };
+    const packageItem = await Package.findOne({ _id: packageId, service: serviceId, ...(activeOnly ? { active: true } : {}) });
+    if (!packageItem) return { error: 'Package not found for this service' };
+    return { service, package: packageItem };
   }
-  return null;
+  return { service, package: null };
 }
 
 function normalizeEmail(value) {
@@ -80,13 +81,15 @@ async function createBooking(req, res, next) {
   const errors = validateBookingInput(req.body);
   if (errors.length) return res.status(400).json({ success: false, message: errors[0] });
   try {
-    const referenceError = await validateReferences(req.body.service, req.body.package);
-    if (referenceError) return res.status(referenceError.message.includes('not found') ? 404 : 400).json({ success: false, message: referenceError.message });
+    const references = await validateReferences(req.body.service, req.body.package, true);
+    if (references.error) return res.status(references.error.includes('not found') ? 404 : 400).json({ success: false, message: references.error });
     const client = await findOrCreateClient(req.body);
     const booking = await Booking.create({
       client: client._id,
       service: req.body.service,
       package: req.body.package || null,
+      serviceSnapshot: { name: references.service.name, price: references.service.price, duration: references.service.duration },
+      packageSnapshot: references.package ? { name: references.package.name, price: references.package.price, duration: references.package.duration } : undefined,
       preferredDate: new Date(req.body.preferredDate),
       preferredTime: req.body.preferredTime || '',
       eventType: req.body.eventType || '',

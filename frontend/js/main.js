@@ -156,7 +156,7 @@ async function loadServicesPage() {
     grid.closest('.section').after(packageSection);
     const packages = await getJson('/api/packages');
     const packageGrid = packageSection.querySelector('[data-packages-grid]');
-    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
+    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
   } catch (error) {
     console.error(error);
   }
@@ -183,12 +183,17 @@ async function loadBookingOptions() {
   }
   try {
     const services = await getJson('/api/services');
-    serviceSelect.innerHTML = '<option value="">Choose a service</option>' + services.map((item) => `<option value="${item._id}">${item.name}</option>`).join('');
+    serviceSelect.innerHTML = '<option value="">Choose a service</option>' + services.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
     const packages = await getJson('/api/packages');
-    serviceSelect.addEventListener('change', () => {
+    const updatePackages = () => {
       const selected = packages.filter((item) => item.service && item.service._id === serviceSelect.value);
-      packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}</option>`).join('');
-    });
+      packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
+    };
+    serviceSelect.addEventListener('change', updatePackages);
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('service') && services.some((item) => item._id === query.get('service'))) serviceSelect.value = query.get('service');
+    updatePackages();
+    if (query.get('package') && packages.some((item) => item._id === query.get('package'))) packageSelect.value = query.get('package');
   } catch (error) {
     console.error(error);
   }
@@ -258,8 +263,14 @@ function bindBookingForm() {
       event.preventDefault();
       const status = form.querySelector('.form-status');
       if (!form.dataset.bookingForm) {
-        status.textContent = 'Thank you. We will be in touch soon.';
-        form.reset();
+        const formData = new FormData(form);
+        try {
+          const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(formData.entries())) });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.message || 'Message could not be sent.');
+          status.textContent = result.message;
+          form.reset();
+        } catch (error) { status.textContent = error.message; }
         return;
       }
       const formData = new FormData(form);

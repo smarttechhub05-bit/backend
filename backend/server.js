@@ -1,8 +1,9 @@
 const path = require('path');
+const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const dotenv = require('dotenv');
 const { connectDatabase, getDatabaseState } = require('./config/database');
 const databaseRoutes = require('./routes/database');
 const serviceRoutes = require('./routes/services');
@@ -20,6 +21,7 @@ const revisionRoutes = require('./routes/revisions');
 const websiteRoutes = require('./routes/website');
 const notificationRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
+const contactRoutes = require('./routes/contact');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -49,6 +51,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/contact', contactRoutes);
 
 app.get('/api/health', (req, res) => {
   const database = getDatabaseState();

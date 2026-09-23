@@ -168,8 +168,9 @@ async function deleteMedia(req, res, next) {
   try {
     const item = await GalleryItem.findById(req.params.itemId);
     if (!item || !(await Gallery.findOne({ _id: item.gallery, ...(await scopedFilter(req.user)) }))) return res.status(404).json({ success: false, message: 'Media not found.' });
+    const deleted = await deleteFile(item.objectKey || item.storageKey);
+    if (!deleted && item.storageProvider === 'cloudflare-r2') return res.status(502).json({ success: false, message: 'The media file could not be removed from storage.' });
     await GalleryItem.findByIdAndDelete(item._id);
-    await deleteFile(item.objectKey || item.storageKey);
     res.json({ success: true, message: 'Media reference deleted successfully.' });
   } catch (error) { next(error); }
 }
@@ -195,10 +196,21 @@ async function publicGallery(req, res, next) {
   try {
     const gallery = await Gallery.findOne(publicGalleryFilter(tokenHash)).populate('client', 'fullName').populate({ path: 'project', select: 'title projectType type shootDate location booking', populate: { path: 'booking', select: 'package', populate: { path: 'package', select: 'selectionLimit name' } } }).select('title description coverImage accessStatus galleryStatus selectionStatus selectionSubmittedAt client project createdAt updatedAt');
     if (!gallery) return res.status(404).json({ success: false, message: 'Gallery not found or access has expired.' });
-    const items = await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl editedFileUrl editedThumbnailUrl title description selected approved approvedAt downloadable createdAt').sort({ createdAt: 1 }).limit(200).lean();
+    const items = await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl editedFileUrl editedThumbnailUrl objectKey storageKey storageProvider title description selected approved approvedAt downloadable createdAt').sort({ createdAt: 1 }).limit(200).lean();
+    const signedItems = await Promise.all(items.map(async (item) => {
+      if (item.storageProvider !== 'cloudflare-r2') return item;
+      const fileKey = item.objectKey || item.storageKey;
+      const thumbnailKey = item.thumbnailUrl && item.thumbnailUrl !== item.fileUrl ? item.thumbnailUrl : fileKey;
+      return {
+        ...item,
+        fileUrl: await generateSignedUrl(fileKey),
+        thumbnailUrl: thumbnailKey ? await generateSignedUrl(thumbnailKey) : '',
+        editedFileUrl: item.editedFileUrl || ''
+      };
+    }));
     const selectedCount = await GalleryItem.countDocuments({ gallery: gallery._id, selected: true });
     const selectionLimit = gallery.project?.booking?.package?.selectionLimit ?? null;
-    res.json({ success: true, data: { ...gallery.toObject(), items, selectionStatus: gallery.selectionStatus, selectionSubmittedAt: gallery.selectionSubmittedAt, selectionLimit, selectedCount, mediaStats: await galleryStats(gallery._id) } });
+    res.json({ success: true, data: { ...gallery.toObject(), items: signedItems, selectionStatus: gallery.selectionStatus, selectionSubmittedAt: gallery.selectionSubmittedAt, selectionLimit, selectedCount, mediaStats: await galleryStats(gallery._id) } });
   } catch (error) { next(error); }
 }
 
