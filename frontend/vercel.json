@@ -14,7 +14,7 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://stuidiobackend.onrender.com/api/:path*"
+      "destination": "https://backend-58zd.onrender.com/api/:path*"
     }
   ]
 }
