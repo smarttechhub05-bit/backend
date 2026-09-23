@@ -38,7 +38,7 @@ function setupSecretMatches(request) {
   const configuredSecret = process.env.ADMIN_SETUP_SECRET;
   const authorization = String(request.get('authorization') || '');
   const providedSecret = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  if (!configuredSecret || !providedSecret) return false;
+  if (!configuredSecret || configuredSecret.length < 32 || !providedSecret) return false;
   const configured = Buffer.from(configuredSecret);
   const provided = Buffer.from(providedSecret);
   return configured.length === provided.length && crypto.timingSafeEqual(configured, provided);

@@ -21,7 +21,7 @@ const websiteRoutes = require('./routes/website');
 const notificationRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 
-dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 const port = process.env.PORT || 3000;
