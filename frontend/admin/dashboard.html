@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard | Rap Eugene Studio</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="dashboard-shell">
+    <aside class="sidebar">
+      <a class="admin-brand" href="dashboard.html"><span class="admin-mark">RE</span> Rap Eugene Studio</a>
+      <nav class="sidebar-nav">
+        <a class="active" href="dashboard.html">Dashboard</a>
+        <a href="#website-cms" data-cms-nav="true">Website / CMS</a>
+        <a href="#services">Services &amp; Packages</a>
+        <a href="#bookings">Bookings</a>
+        <a href="#calendar">Calendar</a>
+        <a href="#clients">Clients</a>
+        <a href="#projects">Projects / Shoots</a>
+        <a href="#galleries">Client Galleries</a>
+        <a href="#analytics" data-analytics-nav="true">Analytics</a>
+        <a href="#staff">Staff &amp; Users</a>
+        <a href="#settings">Settings</a>
+      </nav>
+    </aside>
+    <main class="dashboard-main">
+      <header class="dashboard-top">
+        <div><h1>Welcome.</h1><p>Live studio information will appear here.</p></div>
+        <span class="date-label"></span>
+      </header>
+      <section class="stats-grid">
+        <article class="stat-card"><span>Total Clients</span><strong>0</strong><small>Loading live data</small></article>
+        <article class="stat-card"><span>Total Bookings</span><strong>0</strong><small>Loading live data</small></article>
+        <article class="stat-card"><span>Upcoming Shoots</span><strong>0</strong><small>Loading live data</small></article>
+        <article class="stat-card"><span>Pending Bookings</span><strong>0</strong><small>Loading live data</small></article>
+        <article class="stat-card"><span>Gallery Projects</span><strong>0</strong><small>Loading live data</small></article>
+        <article class="stat-card"><span>Active Services</span><strong>0</strong><small>Loading live data</small></article>
+      </section>
+      <div class="dashboard-grid">
+        <section class="dash-panel" id="bookings">
+          <h2>Recent bookings</h2>
+          <table class="booking-table"><thead><tr><th>Client</th><th>Service</th><th>Date</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="js/admin.js"></script>
+</body>
+</html>
