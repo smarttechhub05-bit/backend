@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/authMiddleware');
 const router = express.Router();
 router.use(databaseGuard);
 router.post('/login', controller.login);
+router.post('/setup-admin', controller.setupAdmin);
 router.get('/me', requireAuth, controller.me);
 router.post('/logout', controller.logout);
 

@@ -59,6 +59,8 @@ Day 10 adds the client CRM, duplicate-client reuse during booking creation, clie
 
 Copy `.env.example` to `.env` for local development. In production, set `PORT`, `MONGODB_URI`, `JWT_SECRET`, and optionally `FRONTEND_ORIGIN` in the deployment environment. Deployment environment variables take precedence over `.env`. `/api/health` returns HTTP 503 when MongoDB is unavailable.
 
+To create the first production administrator, temporarily set `ADMIN_SETUP_SECRET` in Render, then send a `POST` request to `/api/auth/setup-admin` with `Authorization: Bearer <ADMIN_SETUP_SECRET>` and a JSON body containing `name`, `email`, and a strong `password`. The endpoint is one-time: it returns a conflict once a `superadmin` exists. Remove `ADMIN_SETUP_SECRET` after setup.
+
 ## Current scope
 
 The public pages, admin interface, authentication, role permissions, booking workflows, client CRM, private galleries, revision and approval workflows, and database-backed CRUD APIs are connected. A legacy `PaymentRecord` model remains dormant for compatibility, but no payment API, payment form, payment dashboard, or payment processing is exposed. Advanced analytics remain future work.

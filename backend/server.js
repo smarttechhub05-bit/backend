@@ -2,10 +2,8 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const { connectDatabase, getDatabaseState } = require('./config/database');
-const { User } = require('./models');
 const databaseRoutes = require('./routes/database');
 const serviceRoutes = require('./routes/services');
 const packageRoutes = require('./routes/packages');
@@ -107,22 +105,7 @@ app.use((error, req, res, next) => {
 });
 
 async function startServer() {
-  const database = await connectDatabase();
-  if (database.status === 'connected' && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
-    const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
-    const existing = await User.findOne({ email });
-    if (!existing) {
-      if (process.env.ADMIN_PASSWORD.length < 8) throw new Error('ADMIN_PASSWORD must be at least 8 characters.');
-      await User.create({
-        name: process.env.ADMIN_NAME || 'Studio Administrator',
-        email,
-        password: await bcrypt.hash(process.env.ADMIN_PASSWORD, 12),
-        role: 'superadmin',
-        active: true
-      });
-      console.log(`Admin account created for ${email}. Remove ADMIN_PASSWORD from the deployment environment.`);
-    }
-  }
+  await connectDatabase();
   app.listen(port, () => {
     console.log(`Rap Eugene Studio server running at http://localhost:${port}`);
   });

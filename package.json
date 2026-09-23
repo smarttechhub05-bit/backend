@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node --watch backend/server.js",
-    "create-admin": "node backend/scripts/createAdmin.js",
-    "reset-admin": "node backend/scripts/resetAdmin.js"
+    "create-admin": "node backend/scripts/createAdmin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.30.1",
