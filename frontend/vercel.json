@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/admin",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/admin/login.html",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/admin/dashboard.html",
+      "destination": "/dashboard.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://stuidiobackend.onrender.com/api/:path*"
     }

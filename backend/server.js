@@ -26,7 +26,6 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const app = express();
 const port = process.env.PORT || 3000;
 const frontendPath = path.join(__dirname, '..', 'frontend');
-const adminPath = path.join(frontendPath, 'admin');
 const frontendOrigin = process.env.FRONTEND_ORIGIN;
 
 if (frontendOrigin) app.use(cors({ origin: frontendOrigin, credentials: true }));
@@ -73,18 +72,18 @@ app.get('/api/public-contact', (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(adminPath, 'login.html'));
+  res.sendFile(path.join(frontendPath, 'login.html'));
 });
 
 app.get('/admin/login.html', (req, res) => {
-  res.sendFile(path.join(adminPath, 'login.html'));
+  res.sendFile(path.join(frontendPath, 'login.html'));
 });
 
 app.get('/admin/dashboard.html', (req, res) => {
-  res.sendFile(path.join(adminPath, 'dashboard.html'));
+  res.sendFile(path.join(frontendPath, 'dashboard.html'));
 });
 
-app.use('/admin', express.static(adminPath));
+app.use('/admin', express.static(frontendPath));
 
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found.' });
