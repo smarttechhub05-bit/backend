@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { WebsiteSettings, Testimonial, Promotion, MediaAsset, Service, Package, Gallery, GalleryItem } = require('../models');
-const { uploadFile, deleteFile } = require('../services/storageService');
+const { uploadFile, deleteFile, getSignedUrl: generateSignedUrl } = require('../services/storageService');
 
 const portfolioCategories = ['photography', 'videography', 'weddings', 'portraits', 'events', 'fashion', 'commercial', 'portfolio'];
 
@@ -77,10 +77,11 @@ async function getPublicContent(req, res, next) {
       Service.find({ active: true }).sort({ createdAt: -1 }).lean(),
       Package.find({ active: true }).populate('service', 'name category').sort({ createdAt: -1 }).lean(),
       Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean(),
-      MediaAsset.find({ usage: 'portfolio', mimeType: /^image\// }).select('title description altText url category createdAt').sort({ createdAt: -1 }).limit(30).lean()
+      MediaAsset.find({ usage: 'portfolio' }).select('title description altText url objectKey storageKey storageProvider mimeType category createdAt').sort({ createdAt: -1 }).limit(30).lean()
     ]);
-    const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: (await GalleryItem.find({ gallery: gallery._id, type: 'photo' }).select('fileUrl thumbnailUrl title description').sort({ createdAt: 1 }).limit(12).lean()).map((item) => ({ ...item, fileUrl: safeUrl(item.fileUrl), thumbnailUrl: safeUrl(item.thumbnailUrl) })) })));
-    const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: portfolioMedia.map((item) => ({ title: item.title, description: item.description, altText: item.altText, category: item.category, fileUrl: safeUrl(item.url), thumbnailUrl: safeUrl(item.url), createdAt: item.createdAt })) }] : [])];
+    const resolveMediaUrl = async (url, provider, key) => provider === 'cloudflare-r2' && key ? generateSignedUrl(key) : safeUrl(url);
+    const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: await Promise.all((await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl title description altText category mimeType storageProvider objectKey storageKey').sort({ createdAt: 1 }).limit(12).lean()).map(async (item) => ({ ...item, fileUrl: await resolveMediaUrl(item.fileUrl, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.thumbnailUrl, item.storageProvider, item.objectKey || item.storageKey) }))) })));
+    const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
     res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials, promotions, services, packages, portfolio } });
   } catch (error) { next(error); }
 }
@@ -130,7 +131,7 @@ async function uploadMedia(req, res, next) {
       title: clean(req.body.title || req.file.originalname, 160),
       description: clean(caption || req.body.description || '', 1000),
       altText: clean(req.body.altText || caption || '', 250),
-      url: stored.url,
+      url: stored.signedUrl || stored.url,
       objectKey: stored.objectKey || stored.key,
       storageKey: stored.objectKey || stored.key,
       storageProvider: stored.provider,

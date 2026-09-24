@@ -62,6 +62,17 @@ function setCurrentCopyright() {
   document.querySelectorAll('.footer-bottom span:first-child:not(.copyright-year)').forEach((element) => { element.textContent = `© ${year} Rap Eugene Studio. All rights reserved.`; });
 }
 
+function renderPublicPortfolio(grid, portfolio) {
+  const items = portfolio.flatMap((gallery) => gallery.items.map((item) => ({ ...item, category: String(item.category || gallery.project?.projectType || gallery.project?.type || 'portfolio').toLowerCase(), galleryTitle: gallery.title })));
+  if (!items.length) { grid.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty-state', textContent: 'No portfolio content has been published yet.' })); return; }
+  grid.innerHTML = items.map((item) => {
+    const caption = String(item.caption || item.description || item.title || item.galleryTitle || 'Selected work').trim();
+    const media = item.type === 'video' ? `<video controls preload="metadata" src="${item.fileUrl}"></video>` : `<img loading="lazy" src="${item.thumbnailUrl || item.fileUrl}" alt="${item.altText || item.title || item.galleryTitle || 'Portfolio image'}">`;
+    return `<figure data-category="${String(item.category).replace(/[^a-z0-9-]/g, '')}">${media}<figcaption>${caption}</figcaption></figure>`;
+  }).join('');
+  grid.querySelectorAll('img').forEach((image) => { image.onerror = () => image.closest('figure')?.remove(); });
+}
+
 setCurrentCopyright();
 
 async function loadPublicContent() {
@@ -111,21 +122,8 @@ async function loadPublicContent() {
       const values = [settings.phone || 'Not provided', settings.email || 'Not provided', settings.WhatsApp || 'Not provided', [settings.address, settings.city, settings.country].filter(Boolean).join(', ') || 'Not provided', settings.businessHours || 'By appointment'];
       document.querySelectorAll('.contact-detail').forEach((detail, index) => { const value = detail.childNodes[1]; if (value && values[index]) value.textContent = values[index]; });
     }
-    if (page.endsWith('/portfolio.html') && content.portfolio?.length) {
-      const grid = document.querySelector('.gallery-grid');
-      if (grid) {
-        const items = content.portfolio.flatMap((gallery) => gallery.items.map((item) => ({ ...item, category: String(item.category || gallery.project?.projectType || gallery.project?.type || 'portfolio').toLowerCase(), galleryTitle: gallery.title })));
-        if (items.length) {
-          grid.innerHTML = items.map((item) => {
-            const caption = String(item.caption || item.description || item.title || item.galleryTitle || 'Selected work').trim();
-            return `<figure data-category="${String(item.category).replace(/[^a-z0-9-]/g, '')}"><img loading="lazy" src="${item.thumbnailUrl || item.fileUrl}" alt="${item.altText || item.title || item.galleryTitle || 'Portfolio image'}"><figcaption>${caption}</figcaption></figure>`;
-          }).join('');
-          grid.querySelectorAll('img').forEach((image) => { image.onerror = () => image.closest('figure')?.remove(); });
-        }
-      }
-    }
-    if (page.endsWith('/portfolio.html') && !content.portfolio?.some((gallery) => gallery.items?.length)) document.querySelector('.gallery-grid')?.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty-state', textContent: 'No portfolio content has been published yet.' }));
-    if ((page.endsWith('/index.html') || page === '/' || page.endsWith('/')) && !content.portfolio?.some((gallery) => gallery.items?.length)) document.querySelector('.portfolio-grid')?.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty-state', textContent: 'No portfolio content has been published yet.' }));
+    if (page.endsWith('/portfolio.html')) renderPublicPortfolio(document.querySelector('.gallery-grid'), content.portfolio || []);
+    if (page.endsWith('/index.html') || page === '/' || page.endsWith('/')) renderPublicPortfolio(document.querySelector('.portfolio-grid'), content.portfolio || []);
     document.querySelectorAll('meta[name="description"]').forEach((meta) => { if (settings.seoDescription) meta.content = settings.seoDescription; });
     if (settings.seoTitle) document.title = settings.seoTitle;
     const footer = document.querySelector('.site-footer');

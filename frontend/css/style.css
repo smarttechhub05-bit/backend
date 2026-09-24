@@ -106,7 +106,7 @@ h3 { font-size: 1.65rem; }
 .filter-btn.active, .filter-btn:hover { border-color: var(--rust); background: var(--rust); color: #fff; }
 .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .gallery-grid figure { margin: 0; }
-.gallery-grid img { aspect-ratio: 1/1.08; }
+.gallery-grid img, .gallery-grid video { aspect-ratio: 1/1.08; width: 100%; object-fit: cover; }
 .gallery-grid figcaption { padding: 12px 0; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
 .message-panel { max-width: 680px; margin: 0 auto; padding: 75px 30px; text-align: center; border: 1px solid var(--line); background: var(--cream); }
 .contact-details { display: grid; gap: 24px; }
