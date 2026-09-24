@@ -174,7 +174,8 @@ async function loadBookingOptions() {
     packageSelect = document.createElement('select');
     packageSelect.name = 'package';
     packageSelect.id = 'package';
-    packageSelect.innerHTML = '<option value="">No package selected</option>';
+    packageSelect.innerHTML = '<option value="">Loading packages...</option>';
+    packageSelect.disabled = true;
     const packageField = document.createElement('div');
     packageField.className = 'form-field';
     packageField.innerHTML = '<label for="package">Package</label>';
@@ -187,7 +188,8 @@ async function loadBookingOptions() {
     const packages = await getJson('/api/packages');
     const updatePackages = () => {
       const selected = packages.filter((item) => item.service && item.service._id === serviceSelect.value);
-      packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
+        packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
+        packageSelect.disabled = selected.length === 0;
     };
     serviceSelect.addEventListener('change', updatePackages);
     const query = new URLSearchParams(window.location.search);
@@ -196,6 +198,8 @@ async function loadBookingOptions() {
     if (query.get('package') && packages.some((item) => item._id === query.get('package'))) packageSelect.value = query.get('package');
   } catch (error) {
     console.error(error);
+    packageSelect.innerHTML = '<option value="">Packages unavailable</option>';
+    packageSelect.disabled = true;
   }
 }
 
