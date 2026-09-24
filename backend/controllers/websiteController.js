@@ -71,14 +71,16 @@ async function getPublicContent(req, res, next) {
       businessName: 'Rap Eugene Studio', tagline: 'Capturing Moments. Creating Stories.', city: 'Limbe', country: 'Cameroon', socialLinks: {}
     } : storedSettings;
     const now = new Date();
-    const [testimonials, promotions, services, packages, publicGalleries] = await Promise.all([
+    const [testimonials, promotions, services, packages, publicGalleries, portfolioMedia] = await Promise.all([
       Testimonial.find({ active: true, published: true }).sort({ displayOrder: 1, createdAt: -1 }).select('clientName content rating clientImage featured displayOrder').lean(),
       Promotion.find({ active: true, published: true, $and: [{ $or: [{ startDate: null }, { startDate: { $lte: now } }] }, { $or: [{ endDate: null }, { endDate: { $gte: now } }] }] }).sort({ createdAt: -1 }).select('title description image buttonText buttonLink startDate endDate').lean(),
       Service.find({ active: true }).sort({ createdAt: -1 }).lean(),
       Package.find({ active: true }).populate('service', 'name category').sort({ createdAt: -1 }).lean(),
-      Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean()
+      Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean(),
+      MediaAsset.find({ usage: 'portfolio', mimeType: /^image\// }).select('title description altText url category createdAt').sort({ createdAt: -1 }).limit(30).lean()
     ]);
-    const portfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: (await GalleryItem.find({ gallery: gallery._id, type: 'photo' }).select('fileUrl thumbnailUrl title description').sort({ createdAt: 1 }).limit(12).lean()).map((item) => ({ ...item, fileUrl: safeUrl(item.fileUrl), thumbnailUrl: safeUrl(item.thumbnailUrl) })) })));
+    const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: (await GalleryItem.find({ gallery: gallery._id, type: 'photo' }).select('fileUrl thumbnailUrl title description').sort({ createdAt: 1 }).limit(12).lean()).map((item) => ({ ...item, fileUrl: safeUrl(item.fileUrl), thumbnailUrl: safeUrl(item.thumbnailUrl) })) })));
+    const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: portfolioMedia.map((item) => ({ title: item.title, description: item.description, altText: item.altText, category: item.category, fileUrl: safeUrl(item.url), thumbnailUrl: safeUrl(item.url), createdAt: item.createdAt })) }] : [])];
     res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials, promotions, services, packages, portfolio } });
   } catch (error) { next(error); }
 }
