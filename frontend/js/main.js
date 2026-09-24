@@ -56,6 +56,12 @@ function setText(selector, value) {
   if (element && value) element.textContent = value;
 }
 
+function normalizeCameroonPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.startsWith('237') ? digits : `237${digits}`;
+}
+
 function setCurrentCopyright() {
   const year = '2020';
   document.querySelectorAll('.copyright-year').forEach((element) => { element.textContent = `© ${year} Rap Eugene Studio. All rights reserved.`; });
@@ -119,8 +125,17 @@ async function loadPublicContent() {
       const image = document.querySelector('.about-image'); if (image && about.image) image.src = about.image;
     }
     if (page.endsWith('/contact.html')) {
-      const values = [settings.phone || 'Not provided', settings.email || 'Not provided', settings.WhatsApp || 'Not provided', [settings.address, settings.city, settings.country].filter(Boolean).join(', ') || 'Not provided', settings.businessHours || 'By appointment'];
-      document.querySelectorAll('.contact-detail').forEach((detail, index) => { const value = detail.childNodes[1]; if (value && values[index]) value.textContent = values[index]; });
+      const phone = settings.phone || '+237 675 681 696';
+      const email = settings.email || 'rapeugenstudio@gmail.com';
+      const whatsapp = settings.WhatsApp || '237675681696';
+      const phoneLink = document.querySelector('.contact-detail:nth-child(1) a');
+      const emailLink = document.querySelector('.contact-detail:nth-child(2) a');
+      const whatsappLink = document.querySelector('.contact-detail:nth-child(3) a');
+      if (phoneLink) { phoneLink.textContent = phone; phoneLink.href = `tel:+${normalizeCameroonPhone(phone)}`; }
+      if (emailLink) { emailLink.textContent = email; emailLink.href = `mailto:${email}`; }
+      if (whatsappLink) { whatsappLink.textContent = settings.WhatsApp || phone; whatsappLink.href = `https://wa.me/${normalizeCameroonPhone(whatsapp)}`; }
+      const values = [phone, email, whatsapp, [settings.address, settings.city, settings.country].filter(Boolean).join(', ') || 'Limbe, Cameroon', settings.businessHours || 'By appointment'];
+      document.querySelectorAll('.contact-detail').forEach((detail, index) => { if (index > 2) { const value = detail.childNodes[1]; if (value && values[index]) value.textContent = values[index]; } });
     }
     if (page.endsWith('/portfolio.html')) renderPublicPortfolio(document.querySelector('.gallery-grid'), content.portfolio || []);
     if (page.endsWith('/index.html') || page === '/' || page.endsWith('/')) renderPublicPortfolio(document.querySelector('.portfolio-grid'), content.portfolio || []);
