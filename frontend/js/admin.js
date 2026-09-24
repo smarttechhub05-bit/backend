@@ -382,7 +382,15 @@ async function loadGalleryPanel(role) {
       event.preventDefault();
       const form = event.currentTarget;
       const values = Object.fromEntries(new FormData(form).entries());
-      try { await requestJson(`/api/projects/${values.project}/create-gallery`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: values.title, description: values.description }) }); form.reset(); loadGalleryPanel(role); } catch (error) { form.querySelector('.management-status').textContent = error.message; }
+      try {
+        const response = await fetch(`/api/projects/${values.project}/create-gallery`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: values.title, description: values.description }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Gallery creation failed.');
+        const link = `${window.location.origin}/gallery.html?token=${encodeURIComponent(result.accessToken)}`;
+        form.reset();
+        form.querySelector('.management-status').innerHTML = `Gallery created. <a href="${link}" target="_blank" rel="noopener">Open client link</a> <button type="button" data-copy-gallery-link>Copy link</button>`;
+        form.querySelector('[data-copy-gallery-link]').addEventListener('click', async (event) => { await navigator.clipboard.writeText(link); event.currentTarget.textContent = 'Copied'; });
+      } catch (error) { form.querySelector('.management-status').textContent = error.message; }
     });
     panel.querySelectorAll('[data-gallery-review]').forEach((button) => button.addEventListener('click', async () => {
       const gallery = await requestJson(`/api/galleries/${button.dataset.galleryReview}`);
