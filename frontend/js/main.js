@@ -57,7 +57,7 @@ function setText(selector, value) {
 }
 
 function setCurrentCopyright() {
-  const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Douala', year: 'numeric' }).format(new Date());
+  const year = '2020';
   document.querySelectorAll('.copyright-year').forEach((element) => { element.textContent = `© ${year} Rap Eugene Studio. All rights reserved.`; });
   document.querySelectorAll('.footer-bottom span:first-child:not(.copyright-year)').forEach((element) => { element.textContent = `© ${year} Rap Eugene Studio. All rights reserved.`; });
 }
