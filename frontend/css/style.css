@@ -32,9 +32,8 @@ h3 { font-size: 1.65rem; }
 .site-header { position: absolute; z-index: 5; top: 0; width: 100%; color: #fff; }
 .navbar { display: flex; align-items: center; justify-content: space-between; min-height: 88px; border-bottom: 1px solid rgba(255,255,255,.3); }
 .brand { display: inline-flex; align-items: center; gap: 12px; font-family: var(--serif); font-size: 1.35rem; letter-spacing: .01em; }
-.brand-mark { position: relative; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, #f7dacc 0%, #d79d7f 25%, #a75d42 55%, #2f2724 100%); box-shadow: 0 12px 24px rgba(62, 41, 35, 0.22); overflow: hidden; }
-.brand-mark::before { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(255,255,255,.7); border-radius: 10px; }
-.brand-mark-inner { position: relative; z-index: 1; font-family: var(--sans); font-size: .66rem; font-weight: 900; letter-spacing: .18em; color: #fff; }
+.brand-mark { position: relative; width: 42px; height: 42px; border-radius: 8px; display: grid; place-items: center; background: #000 url('../assets/logo.jpeg') center/cover no-repeat; box-shadow: 0 12px 24px rgba(62, 41, 35, 0.22); overflow: hidden; }
+.brand-mark::before, .brand-mark-inner { display: none; }
 .brand-text { display: inline-block; }
 .nav-links { display: flex; align-items: center; gap: 24px; font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .nav-links a { opacity: .85; transition: opacity .2s; }
