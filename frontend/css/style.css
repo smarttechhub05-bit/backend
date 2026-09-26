@@ -64,8 +64,8 @@ h3 { font-size: 1.65rem; }
 .portfolio-grid a { position: relative; overflow: hidden; }
 .portfolio-grid a:first-child { grid-row: span 2; }
 .portfolio-grid a:nth-child(4) { grid-column: span 2; }
-.portfolio-grid img { height: 100%; transition: transform .5s; }
-.portfolio-grid a:hover img { transform: scale(1.05); }
+.portfolio-grid img, .portfolio-grid video { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+.portfolio-grid a:hover img, .portfolio-grid a:hover video { transform: scale(1.05); }
 .portfolio-label { position: absolute; bottom: 20px; left: 20px; color: #fff; font-family: var(--serif); font-size: 1.4rem; text-shadow: 0 2px 10px #000; }
 .about-split { display: grid; grid-template-columns: .95fr 1.05fr; gap: 80px; align-items: center; }
 .about-image { aspect-ratio: 4/5; }

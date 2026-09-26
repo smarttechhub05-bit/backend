@@ -48,7 +48,7 @@ function cleanPromotion(payload) {
     title: clean(payload.title, 120), description: clean(payload.description, 500), image: clean(payload.image, 500),
     startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : null,
     endDate: endDate && !Number.isNaN(endDate.getTime()) ? endDate : null,
-    active: payload.active === true, published: payload.published === true,
+    active: payload.active !== false, published: payload.published !== false,
     buttonText: clean(payload.buttonText, 80), buttonLink: clean(payload.buttonLink, 500)
   };
 }

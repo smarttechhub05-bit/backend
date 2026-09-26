@@ -69,13 +69,33 @@ function setCurrentCopyright() {
 }
 
 function renderPublicPortfolio(grid, portfolio) {
+  if (!grid) return;
   const items = portfolio.flatMap((gallery) => gallery.items.map((item) => ({ ...item, category: String(item.category || gallery.project?.projectType || gallery.project?.type || 'portfolio').toLowerCase(), galleryTitle: gallery.title })));
   if (!items.length) { grid.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty-state', textContent: 'No portfolio content has been published yet.' })); return; }
-  grid.innerHTML = items.map((item) => {
-    const caption = String(item.caption || item.description || item.title || item.galleryTitle || 'Selected work').trim();
-    const media = item.type === 'video' ? `<video controls preload="metadata" src="${item.fileUrl}"></video>` : `<img loading="lazy" src="${item.thumbnailUrl || item.fileUrl}" alt="${item.altText || item.title || item.galleryTitle || 'Portfolio image'}">`;
-    return `<figure data-category="${String(item.category).replace(/[^a-z0-9-]/g, '')}">${media}<figcaption>${caption}</figcaption></figure>`;
-  }).join('');
+  const homepage = grid.classList.contains('portfolio-grid');
+  grid.replaceChildren(...items.map((item) => {
+    const title = String(item.title || item.galleryTitle || item.category || 'Selected work').trim();
+    const caption = String(item.caption || item.description || title).trim();
+    const card = document.createElement(homepage ? 'a' : 'figure');
+    card.dataset.category = String(item.category).replace(/[^a-z0-9-]/g, '');
+    if (homepage) card.href = 'portfolio.html';
+    const media = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+    media.src = item.type === 'video' ? item.fileUrl : item.thumbnailUrl || item.fileUrl;
+    if (item.type === 'video') { media.controls = true; media.preload = 'metadata'; }
+    else { media.alt = item.altText || title; media.loading = 'lazy'; }
+    card.appendChild(media);
+    if (homepage) {
+      const label = document.createElement('span');
+      label.className = 'portfolio-label';
+      label.textContent = title;
+      card.appendChild(label);
+    } else {
+      const captionElement = document.createElement('figcaption');
+      captionElement.textContent = caption;
+      card.appendChild(captionElement);
+    }
+    return card;
+  }));
   grid.querySelectorAll('img').forEach((image) => { image.onerror = () => image.closest('figure')?.remove(); });
 }
 
