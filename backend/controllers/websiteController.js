@@ -81,13 +81,30 @@ async function getPublicContent(req, res, next) {
     ]);
     const resolveMediaUrl = async (url, provider, key) => provider === 'cloudflare-r2' && key ? generateSignedUrl(key) : safeUrl(url);
     const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: await Promise.all((await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl title description altText category mimeType storageProvider objectKey storageKey').sort({ createdAt: 1 }).limit(12).lean()).map(async (item) => ({ ...item, fileUrl: await resolveMediaUrl(item.fileUrl, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.thumbnailUrl, item.storageProvider, item.objectKey || item.storageKey) }))) })));
+    const mediaPublicUrl = (value) => {
+      const match = String(value || '').match(/^media:([a-f\d]{24})$/i);
+      return match ? `/api/website/public/media/${match[1]}` : safeUrl(value);
+    };
+    const publicTestimonials = testimonials.map((item) => ({ ...item, clientImage: mediaPublicUrl(item.clientImage) }));
+    const publicPromotions = promotions.map((item) => ({ ...item, image: mediaPublicUrl(item.image) }));
     const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
-    res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials, promotions, services, packages, portfolio } });
+    res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials: publicTestimonials, promotions: publicPromotions, services, packages, portfolio } });
   } catch (error) { next(error); }
 }
 
 async function getAdminSettings(req, res, next) {
   try { res.json({ success: true, data: await getSettings() }); } catch (error) { next(error); }
+}
+
+async function getPublicMedia(req, res, next) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).end();
+  try {
+    const asset = await MediaAsset.findOne({ _id: req.params.id, usage: { $in: ['hero', 'about', 'portfolio', 'promotion', 'testimonial'] } }).select('url objectKey storageKey storageProvider').lean();
+    if (!asset) return res.status(404).end();
+    const key = asset.objectKey || asset.storageKey;
+    if (asset.storageProvider === 'cloudflare-r2' && key) return res.redirect(302, await generateSignedUrl(key));
+    return res.redirect(302, safeUrl(asset.url) || '/');
+  } catch (error) { next(error); }
 }
 
 async function updateSettings(req, res, next) {
@@ -119,7 +136,7 @@ async function createPromotion(req, res, next) { try { const data = cleanPromoti
 async function updatePromotion(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid promotion ID.' }); try { const data = { ...cleanPromotion(req.body), updatedBy: req.user._id }; const promotion = await Promotion.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true }); if (!promotion) return res.status(404).json({ success: false, message: 'Promotion not found.' }); res.json({ success: true, message: 'Promotion updated.', data: promotion }); } catch (error) { next(error); } }
 async function deletePromotion(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid promotion ID.' }); try { const promotion = await Promotion.findByIdAndUpdate(req.params.id, { active: false, published: false, updatedBy: req.user._id }, { new: true }); if (!promotion) return res.status(404).json({ success: false, message: 'Promotion not found.' }); res.json({ success: true, message: 'Promotion unpublished.', data: promotion }); } catch (error) { next(error); } }
 
-async function listMedia(req, res, next) { try { res.json({ success: true, data: await MediaAsset.find().sort({ createdAt: -1 }).lean() }); } catch (error) { next(error); } }
+async function listMedia(req, res, next) { try { const media = await MediaAsset.find().sort({ createdAt: -1 }).lean(); res.json({ success: true, data: media.map((item) => ({ ...item, publicUrl: `/api/website/public/media/${item._id}` })) }); } catch (error) { next(error); } }
 async function uploadMedia(req, res, next) {
   if (!req.file) return res.status(400).json({ success: false, message: 'A supported media file is required.' });
   try {
@@ -131,7 +148,7 @@ async function uploadMedia(req, res, next) {
       title: clean(req.body.title || req.file.originalname, 160),
       description: clean(caption || req.body.description || '', 1000),
       altText: clean(req.body.altText || caption || '', 250),
-      url: stored.signedUrl || stored.url,
+      url: stored.url,
       objectKey: stored.objectKey || stored.key,
       storageKey: stored.objectKey || stored.key,
       storageProvider: stored.provider,
@@ -141,9 +158,9 @@ async function uploadMedia(req, res, next) {
       category,
       updatedBy: req.user._id
     });
-    res.status(201).json({ success: true, message: 'Media uploaded.', data: asset });
+    res.status(201).json({ success: true, message: 'Media uploaded.', data: { ...asset.toObject(), publicUrl: `/api/website/public/media/${asset._id}` } });
   } catch (error) { next(error); }
 }
 async function deleteMedia(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid media ID.' }); try { const asset = await MediaAsset.findByIdAndDelete(req.params.id); if (!asset) return res.status(404).json({ success: false, message: 'Media asset not found.' }); await deleteFile(asset.objectKey || asset.storageKey); res.json({ success: true, message: 'Media asset deleted.' }); } catch (error) { next(error); } }
 
-module.exports = { getPublicContent, getAdminSettings, updateSettings, listTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, listPromotions, createPromotion, updatePromotion, deletePromotion, listMedia, uploadMedia, deleteMedia };
+module.exports = { getPublicContent, getPublicMedia, getAdminSettings, updateSettings, listTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, listPromotions, createPromotion, updatePromotion, deletePromotion, listMedia, uploadMedia, deleteMedia };

@@ -7,6 +7,7 @@ const { upload, validateMediaSize } = require('../middleware/mediaUpload');
 
 const router = express.Router();
 router.get('/public/content', databaseGuard, controller.getPublicContent);
+router.get('/public/media/:id', databaseGuard, controller.getPublicMedia);
 router.use('/admin', databaseGuard, requireAuth, requirePermission('website:manage'));
 router.get('/admin/settings', controller.getAdminSettings);
 router.put('/admin/settings', controller.updateSettings);

@@ -106,12 +106,13 @@ async function loadPublicContent() {
       const testimonialGrid = document.querySelector('.testimonial-grid');
       if (testimonialGrid) {
         testimonialGrid.innerHTML = content.testimonials?.length ? content.testimonials.map((item) => `<figure class="testimonial"><blockquote></blockquote><cite></cite></figure>`).join('') : '<p class="empty-state">No testimonials have been added yet.</p>';
-        testimonialGrid.querySelectorAll('.testimonial').forEach((item, index) => { item.querySelector('blockquote').textContent = `“${content.testimonials[index].content}”`; item.querySelector('cite').textContent = content.testimonials[index].clientName; });
+        testimonialGrid.querySelectorAll('.testimonial').forEach((item, index) => { const testimonial = content.testimonials[index]; item.querySelector('blockquote').textContent = `“${testimonial.content}”`; item.querySelector('cite').textContent = testimonial.clientName; if (testimonial.clientImage) { const image = document.createElement('img'); image.src = testimonial.clientImage; image.alt = testimonial.clientName; image.loading = 'lazy'; item.prepend(image); } });
       }
       const promotion = content.promotions?.[0];
       if (promotion) {
-        const band = document.createElement('section'); band.className = 'section section--cream cms-promotion'; band.innerHTML = '<div class="container"><p class="eyebrow">Studio promotion</p><h2></h2><p></p><a class="btn" hidden></a></div>';
+        const band = document.createElement('section'); band.className = 'section section--cream cms-promotion'; band.innerHTML = '<div class="container"><p class="eyebrow">Studio promotion</p><img class="cms-promotion-image" hidden alt=""><h2></h2><p></p><a class="btn" hidden></a></div>';
         band.querySelector('h2').textContent = promotion.title; band.querySelector('p:not(.eyebrow)').textContent = promotion.description || '';
+        const promotionImage = band.querySelector('.cms-promotion-image'); if (promotion.image) { promotionImage.src = promotion.image; promotionImage.alt = promotion.title; promotionImage.hidden = false; }
         const link = band.querySelector('a'); if (promotion.buttonText && promotion.buttonLink) { link.textContent = promotion.buttonText; link.href = promotion.buttonLink; link.hidden = false; }
         document.querySelector('main')?.insertBefore(band, document.querySelector('.cta-band'));
       }
