@@ -47,6 +47,23 @@ async function listClients(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function createClient(req, res, next) {
+  const fullName = String(req.body.fullName || '').trim();
+  const phone = String(req.body.phone || '').trim();
+  const email = normalizeClientQuery(req.body.email);
+  if (!fullName) return res.status(400).json({ success: false, message: 'Client name is required.' });
+  if (!phone && !email) return res.status(400).json({ success: false, message: 'Provide a phone number or email address.' });
+  try {
+    const duplicate = await Client.findOne({ $or: [
+      ...(phone ? [{ phone }] : []),
+      ...(email ? [{ email }] : [])
+    ] }).lean();
+    if (duplicate) return res.status(409).json({ success: false, message: 'A client with this phone number or email already exists.', data: { _id: duplicate._id, fullName: duplicate.fullName } });
+    const client = await Client.create({ fullName, phone, email, address: String(req.body.address || '').trim(), notes: String(req.body.notes || '').trim() });
+    res.status(201).json({ success: true, message: 'Client created successfully.', data: await decorateClientSummary(client.toObject()) });
+  } catch (error) { next(error); }
+}
+
 async function getClient(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID.' });
   try {
@@ -154,4 +171,4 @@ async function getClientRevisions(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listClients, getClient, updateClient, patchClientStatus, getClientHistory, getClientBookings, getClientProjects, getClientGalleries, getClientRevisions };
+module.exports = { listClients, createClient, getClient, updateClient, patchClientStatus, getClientHistory, getClientBookings, getClientProjects, getClientGalleries, getClientRevisions };

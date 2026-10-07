@@ -7,6 +7,7 @@ const controller = require('../controllers/clientController');
 const router = express.Router();
 router.use(databaseGuard, requireAuth);
 router.get('/', requirePermission('clients:view'), controller.listClients);
+router.post('/', requirePermission('clients:manage'), controller.createClient);
 router.get('/:id/history', requirePermission('clients:view'), controller.getClientHistory);
 router.get('/:id/bookings', requirePermission('clients:view'), controller.getClientBookings);
 router.get('/:id/projects', requirePermission('clients:view'), controller.getClientProjects);
