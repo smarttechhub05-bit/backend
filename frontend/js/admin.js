@@ -446,7 +446,21 @@ async function loadGalleryPanel(role) {
     const projects = await requestJson('/api/projects');
     const canManage = ['superadmin', 'manager'].includes(role) || role === 'editor';
     const createForm = canManage ? `<form class="management-form" data-gallery-form><select name="project" required><option value="">Choose project</option>${projects.map((project) => `<option value="${project._id}" data-client="${project.client?._id || project.client}">${project.title}</option>`).join('')}</select><input name="title" placeholder="Gallery title" required><input name="description" placeholder="Description"><button class="admin-button" type="submit">Create gallery</button><p class="management-status"></p></form>` : '';
-    const panel = addDashboardPanel('Client Galleries', `${createForm}<div class="management-list">${galleries.length ? galleries.map((gallery) => `<div class="management-item"><span><strong>${gallery.title}</strong><small>${gallery.client?.fullName || 'Client unavailable'} · ${gallery.project?.title || 'Project unavailable'} · ${gallery.galleryStatus} · ${gallery.mediaStats.total} media · ${gallery.selectionStatus}</small></span><button data-gallery-review="${gallery._id}">Review</button></div>`).join('') : '<p class="management-empty">No galleries yet.</p>'}</div><div data-gallery-review-panel></div>`);
+    const panel = addDashboardPanel('Client Galleries', `${createForm}<div class="management-list">${galleries.length ? galleries.map((gallery) => `<div class="management-item"><span><strong>${gallery.title}</strong><small>${gallery.client?.fullName || 'Client unavailable'} · ${gallery.project?.title || 'Project unavailable'} · ${gallery.galleryStatus} · ${gallery.mediaStats.total} media · ${gallery.selectionStatus}</small></span><span class="management-actions"><button type="button" data-gallery-link="${gallery._id}" title="Generate a fresh client link">Generate client link</button><button type="button" data-gallery-review="${gallery._id}">Review</button></span><p class="management-status" data-gallery-link-status="${gallery._id}" aria-live="polite"></p></div>`).join('') : '<p class="management-empty">No galleries yet.</p>'}</div><div data-gallery-review-panel></div>`);
+    panel.querySelectorAll('[data-gallery-link]').forEach((button) => button.addEventListener('click', async () => {
+      if (!window.confirm('Generate a fresh client link and activate this gallery? Any previously shared link for this gallery will stop working.')) return;
+      const status = panel.querySelector(`[data-gallery-link-status="${button.dataset.galleryLink}"]`);
+      button.disabled = true;
+      try {
+        const result = await requestJson(`/api/galleries/${button.dataset.galleryLink}/access-link`, { method: 'POST' });
+        const link = `${window.location.origin}/gallery.html?token=${encodeURIComponent(result.accessToken)}`;
+        status.innerHTML = `Active client link: <a href="${link}" target="_blank" rel="noopener">Open gallery</a> <button type="button" data-copy-client-link>Copy link</button>`;
+        status.querySelector('[data-copy-client-link]').addEventListener('click', async (event) => { await navigator.clipboard.writeText(link); event.currentTarget.textContent = 'Copied'; });
+        button.textContent = 'Regenerate client link';
+        button.closest('.management-item').querySelector('small').textContent = button.closest('.management-item').querySelector('small').textContent.replace(/ · draft · /, ' · active · ');
+      } catch (error) { status.textContent = error.message; }
+      finally { button.disabled = false; }
+    }));
     panel.querySelector('[data-gallery-form]')?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.currentTarget;

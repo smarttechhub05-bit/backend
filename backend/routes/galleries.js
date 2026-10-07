@@ -10,6 +10,7 @@ router.use(databaseGuard, requireAuth);
 router.get('/', requirePermission('galleries:view'), controller.listGalleries);
 router.get('/:id', requirePermission('galleries:view'), controller.getGallery);
 router.post('/', requirePermission('galleries:manage'), controller.createGallery);
+router.post('/:id/access-link', requirePermission('galleries:manage'), controller.generateClientAccessLink);
 router.put('/:id', requirePermission('galleries:manage'), controller.updateGallery);
 router.delete('/:id', requirePermission('galleries:manage'), controller.deleteGallery);
 router.post('/:id/media', requirePermission('galleries:manage'), upload.single('file'), validateMediaSize, controller.addMedia);

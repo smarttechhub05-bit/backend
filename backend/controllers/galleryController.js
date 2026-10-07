@@ -91,6 +91,20 @@ async function createGalleryFromProject(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function generateClientAccessLink(req, res, next) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid gallery ID.' });
+  try {
+    const gallery = await Gallery.findOne({ _id: req.params.id, ...(await scopedFilter(req.user)) });
+    if (!gallery) return res.status(404).json({ success: false, message: 'Gallery not found.' });
+    const pair = tokenPair();
+    gallery.accessTokenHash = pair.hash;
+    gallery.galleryStatus = 'active';
+    gallery.accessRevokedAt = null;
+    await gallery.save();
+    res.json({ success: true, message: 'A new client link is ready. Any previously generated link has been replaced.', data: { accessToken: pair.token, galleryStatus: gallery.galleryStatus, accessStatus: gallery.accessStatus } });
+  } catch (error) { next(error); }
+}
+
 async function updateGallery(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid gallery ID.' });
   if (req.body.galleryStatus && !galleryStatuses.includes(req.body.galleryStatus)) return res.status(400).json({ success: false, message: 'Gallery status is invalid.' });
@@ -214,4 +228,4 @@ async function publicGallery(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listGalleries, getGallery, createGallery, createGalleryFromProject, updateGallery, archiveGallery, deleteGallery, addMedia, listMedia, updateMedia, deleteMedia, getMediaSignedUrl, publicGallery };
+module.exports = { listGalleries, getGallery, createGallery, createGalleryFromProject, generateClientAccessLink, updateGallery, archiveGallery, deleteGallery, addMedia, listMedia, updateMedia, deleteMedia, getMediaSignedUrl, publicGallery };
