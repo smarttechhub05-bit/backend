@@ -13,7 +13,7 @@ const mediaAssetSchema = new mongoose.Schema({
   storageProvider: { type: String, default: 'local-development', trim: true },
   mimeType: { type: String, default: '', trim: true },
   sizeBytes: { type: Number, min: 0, default: 0 },
-  usage: { type: String, enum: ['general', 'hero', 'about', 'portfolio', 'promotion', 'testimonial'], default: 'general' },
+  usage: { type: String, enum: ['general', 'hero', 'about', 'portfolio', 'promotion', 'testimonial', 'service', 'package'], default: 'general' },
   category: { type: String, enum: portfolioCategories, default: 'portfolio', trim: true },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });

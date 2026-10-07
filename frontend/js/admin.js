@@ -197,12 +197,24 @@ function adminPanel(title, formMarkup, listId) {
 }
 
 function serviceForm() {
-  return '<form class="management-form" data-service-form><input name="name" placeholder="Service name" required><select name="category"><option>Photography</option><option>Videography</option><option>Weddings</option><option>Portraits</option><option>Events</option><option>Commercial</option><option>Other</option></select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><button class="admin-button" type="submit">Add service</button><p class="management-status" aria-live="polite"></p></form>';
+  return '<form class="management-form" data-service-form><input name="name" placeholder="Service name" required><select name="category"><option>Photography</option><option>Videography</option><option>Weddings</option><option>Portraits</option><option>Events</option><option>Commercial</option><option>Other</option></select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><label>Service photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="admin-button" type="submit">Add service</button><p class="management-status" aria-live="polite"></p></form>';
 }
 
 function packageForm(services) {
   const options = services.map((service) => `<option value="${service._id}">${service.name}</option>`).join('');
-  return `<form class="management-form" data-package-form><input name="name" placeholder="Package name" required><select name="service" required>${options || '<option value="">Add a service first</option>'}</select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="selectionLimit" type="number" min="0" placeholder="Selected photo limit (optional)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><input name="features" placeholder="Features separated by commas"><button class="admin-button" type="submit">Add package</button><p class="management-status" aria-live="polite"></p></form>`;
+  return `<form class="management-form" data-package-form><input name="name" placeholder="Package name" required><select name="service" required>${options || '<option value="">Add a service first</option>'}</select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="selectionLimit" type="number" min="0" placeholder="Selected photo limit (optional)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><input name="features" placeholder="Features separated by commas"><label>Package photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="admin-button" type="submit">Add package</button><p class="management-status" aria-live="polite"></p></form>`;
+}
+
+async function uploadCatalogImage(file, title, usage) {
+  if (!file) return null;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPG, PNG, or WebP image.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
+  const formData = new FormData();
+  formData.set('title', title);
+  formData.set('usage', usage);
+  formData.set('category', 'portfolio');
+  formData.set('file', file);
+  return requestJson('/api/website/admin/media', { method: 'POST', body: formData });
 }
 
 function renderManagementList(container, items, type) {
@@ -249,14 +261,36 @@ async function loadDashboardManagement() {
     event.preventDefault();
     const form = event.currentTarget;
     const payload = Object.fromEntries(new FormData(form).entries());
-    try { await requestJson('/api/services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); form.reset(); loadDashboardManagement(); } catch (error) { form.querySelector('.management-status').textContent = error.message; }
+    const file = payload.imageFile;
+    delete payload.imageFile;
+    let uploadedAsset;
+    try {
+      if (file?.size) { uploadedAsset = await uploadCatalogImage(file, payload.name, 'service'); payload.image = uploadedAsset.publicUrl; }
+      await requestJson('/api/services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      form.reset();
+      loadDashboardManagement();
+    } catch (error) {
+      if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {});
+      form.querySelector('.management-status').textContent = error.message;
+    }
   });
   management.querySelector('[data-package-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const payload = Object.fromEntries(new FormData(form).entries());
     payload.features = payload.features ? payload.features.split(',').map((feature) => feature.trim()).filter(Boolean) : [];
-    try { await requestJson('/api/packages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); form.reset(); loadDashboardManagement(); } catch (error) { form.querySelector('.management-status').textContent = error.message; }
+    const file = payload.imageFile;
+    delete payload.imageFile;
+    let uploadedAsset;
+    try {
+      if (file?.size) { uploadedAsset = await uploadCatalogImage(file, payload.name, 'package'); payload.image = uploadedAsset.publicUrl; }
+      await requestJson('/api/packages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      form.reset();
+      loadDashboardManagement();
+    } catch (error) {
+      if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {});
+      form.querySelector('.management-status').textContent = error.message;
+    }
   });
 }
 

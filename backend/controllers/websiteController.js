@@ -99,7 +99,7 @@ async function getAdminSettings(req, res, next) {
 async function getPublicMedia(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).end();
   try {
-    const asset = await MediaAsset.findOne({ _id: req.params.id, usage: { $in: ['hero', 'about', 'portfolio', 'promotion', 'testimonial'] } }).select('url objectKey storageKey storageProvider').lean();
+    const asset = await MediaAsset.findOne({ _id: req.params.id, usage: { $in: ['hero', 'about', 'portfolio', 'promotion', 'testimonial', 'service', 'package'] } }).select('url objectKey storageKey storageProvider').lean();
     if (!asset) return res.status(404).end();
     const key = asset.objectKey || asset.storageKey;
     if (asset.storageProvider === 'cloudflare-r2' && key) return res.redirect(302, await generateSignedUrl(key));
@@ -155,7 +155,7 @@ async function uploadMedia(req, res, next) {
       storageProvider: stored.provider,
       mimeType: req.file.mimetype,
       sizeBytes: req.file.size,
-      usage: ['general', 'hero', 'about', 'portfolio', 'promotion', 'testimonial'].includes(req.body.usage) ? req.body.usage : 'general',
+      usage: ['general', 'hero', 'about', 'portfolio', 'promotion', 'testimonial', 'service', 'package'].includes(req.body.usage) ? req.body.usage : 'general',
       category,
       updatedBy: req.user._id
     });

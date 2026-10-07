@@ -195,7 +195,8 @@ async function loadPublicContent() {
 }
 
 function serviceCard(service) {
-  const image = service.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80';
+  const hasCustomImage = service.image && !service.image.includes('images.unsplash.com');
+  const image = hasCustomImage ? service.image : 'assets/images/studio.jpeg';
   return `<article class="service-card"><img src="${image}" alt="${service.name}"><div class="service-card-content"><h3>${service.name}</h3><p>${service.description || 'A considered studio service shaped around your story.'}</p><a class="text-link" href="booking.html?service=${service._id}">Book this service</a></div></article>`;
 }
 
@@ -203,6 +204,9 @@ async function loadServicesPage() {
   if (!window.location.pathname.endsWith('/services.html')) return;
   const grid = document.querySelector('.service-grid');
   if (!grid) return;
+  const staticEventCard = [...grid.querySelectorAll('.service-card')].find((card) => card.querySelector('h3')?.textContent.trim() === 'Events');
+  const staticEventImage = staticEventCard?.querySelector('img');
+  if (staticEventImage) { staticEventImage.src = 'assets/images/studio.jpeg'; staticEventImage.alt = 'Rap Eugene Studio'; }
   try {
     const services = await getJson('/api/services');
     if (services.length) grid.innerHTML = services.map(serviceCard).join('');
@@ -213,7 +217,7 @@ async function loadServicesPage() {
     grid.closest('.section').after(packageSection);
     const packages = await getJson('/api/packages');
     const packageGrid = packageSection.querySelector('[data-packages-grid]');
-    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
+    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><img src="${item.image && !item.image.includes('images.unsplash.com') ? item.image : 'assets/images/studio.jpeg'}" alt="${item.name}"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
   } catch (error) {
     console.error(error);
   }
