@@ -77,7 +77,7 @@ async function getPublicContent(req, res, next) {
       Service.find({ active: true }).sort({ createdAt: -1 }).lean(),
       Package.find({ active: true }).populate('service', 'name category').sort({ createdAt: -1 }).lean(),
       Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean(),
-      MediaAsset.find({ usage: 'portfolio' }).select('title description altText url objectKey storageKey storageProvider mimeType category createdAt').sort({ createdAt: -1 }).limit(100).lean()
+      MediaAsset.find({ usage: 'portfolio' }).select('title caption description altText url objectKey storageKey storageProvider mimeType category createdAt').sort({ createdAt: -1 }).limit(100).lean()
     ]);
     const resolveMediaUrl = async (url, provider, key) => provider === 'cloudflare-r2' && key ? generateSignedUrl(key) : safeUrl(url);
     const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: await Promise.all((await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl title description altText category mimeType storageProvider objectKey storageKey').sort({ createdAt: 1 }).limit(12).lean()).map(async (item) => ({ ...item, fileUrl: await resolveMediaUrl(item.fileUrl, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.thumbnailUrl, item.storageProvider, item.objectKey || item.storageKey) }))) })));
@@ -145,8 +145,9 @@ async function uploadMedia(req, res, next) {
     const stored = await uploadFile(req.file, { prefix: 'website', contentType: req.file.mimetype });
     const caption = req.body.caption || req.body.description || '';
     const asset = await MediaAsset.create({
-      title: clean(req.body.title || req.file.originalname, 160),
-      description: clean(caption || req.body.description || '', 1000),
+      title: clean(req.body.title || req.file.originalname, 60),
+      caption: clean(caption, 1000),
+      description: clean(req.body.description || '', 1000),
       altText: clean(req.body.altText || caption || '', 250),
       url: stored.url,
       objectKey: stored.objectKey || stored.key,
@@ -164,10 +165,11 @@ async function uploadMedia(req, res, next) {
 async function updateMedia(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid media asset ID.' });
   const updates = {};
-  for (const field of ['title', 'description', 'altText']) {
-    if (req.body[field] !== undefined) updates[field] = clean(req.body[field], field === 'title' ? 160 : field === 'altText' ? 250 : 1000);
+  for (const field of ['title', 'caption', 'description', 'altText']) {
+    if (req.body[field] !== undefined) updates[field] = clean(req.body[field], field === 'title' ? 60 : field === 'altText' ? 250 : 1000);
   }
-  if (!updates.title) return res.status(400).json({ success: false, message: 'A media title is required.' });
+  if (req.body.title !== undefined && !updates.title) return res.status(400).json({ success: false, message: 'A media title is required.' });
+  if (!Object.keys(updates).length) return res.status(400).json({ success: false, message: 'At least one media field is required.' });
   try {
     const asset = await MediaAsset.findByIdAndUpdate(req.params.id, { $set: { ...updates, updatedBy: req.user._id } }, { new: true, runValidators: true }).lean();
     if (!asset) return res.status(404).json({ success: false, message: 'Media asset not found.' });

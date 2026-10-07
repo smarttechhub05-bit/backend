@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const portfolioCategories = ['photography', 'videography', 'weddings', 'portraits', 'events', 'fashion', 'commercial', 'portfolio'];
 
 const mediaAssetSchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true, maxlength: 160 },
+  title: { type: String, required: true, trim: true, maxlength: 60 },
+  caption: { type: String, default: '', trim: true, maxlength: 1000 },
   description: { type: String, default: '', trim: true, maxlength: 1000 },
   altText: { type: String, default: '', trim: true, maxlength: 250 },
   url: { type: String, required: true, trim: true, maxlength: 500 },
