@@ -177,6 +177,23 @@ async function updateMedia(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function bulkUpdateMedia(req, res, next) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid gallery ID.' });
+  const updates = {};
+  if (typeof req.body.approved === 'boolean') {
+    updates.approved = req.body.approved;
+    updates.approvedAt = req.body.approved ? new Date() : null;
+  }
+  if (typeof req.body.downloadable === 'boolean') updates.downloadable = req.body.downloadable;
+  if (!Object.keys(updates).length) return res.status(400).json({ success: false, message: 'Choose approval or download permission to update.' });
+  try {
+    const gallery = await Gallery.findOne({ _id: req.params.id, ...(await scopedFilter(req.user)) }).select('_id');
+    if (!gallery) return res.status(404).json({ success: false, message: 'Gallery not found.' });
+    const result = await GalleryItem.updateMany({ gallery: gallery._id }, { $set: updates });
+    res.json({ success: true, message: 'All gallery media updated successfully.', data: { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount, updates } });
+  } catch (error) { next(error); }
+}
+
 async function deleteMedia(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.itemId)) return res.status(400).json({ success: false, message: 'Invalid media ID.' });
   try {
@@ -228,4 +245,4 @@ async function publicGallery(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listGalleries, getGallery, createGallery, createGalleryFromProject, generateClientAccessLink, updateGallery, archiveGallery, deleteGallery, addMedia, listMedia, updateMedia, deleteMedia, getMediaSignedUrl, publicGallery };
+module.exports = { listGalleries, getGallery, createGallery, createGalleryFromProject, generateClientAccessLink, updateGallery, archiveGallery, deleteGallery, addMedia, listMedia, updateMedia, bulkUpdateMedia, deleteMedia, getMediaSignedUrl, publicGallery };

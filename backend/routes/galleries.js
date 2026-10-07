@@ -15,6 +15,7 @@ router.put('/:id', requirePermission('galleries:manage'), controller.updateGalle
 router.delete('/:id', requirePermission('galleries:manage'), controller.deleteGallery);
 router.post('/:id/media', requirePermission('galleries:manage'), upload.single('file'), validateMediaSize, controller.addMedia);
 router.get('/:id/media', requirePermission('galleries:view'), controller.listMedia);
+router.post('/:id/media/bulk-update', requirePermission('galleries:manage'), controller.bulkUpdateMedia);
 router.get('/:id/media/:itemId/secure-url', requirePermission('galleries:view'), controller.getMediaSignedUrl);
 router.put('/:id/media/:itemId', requirePermission('galleries:manage'), controller.updateMedia);
 router.delete('/:id/media/:itemId', requirePermission('galleries:manage'), controller.deleteMedia);

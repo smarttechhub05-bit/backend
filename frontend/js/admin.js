@@ -482,6 +482,29 @@ async function loadGalleryPanel(role) {
       review.innerHTML = `<div class="gallery-review"><h3>${gallery.title} · Selection: ${gallery.selectionStatus}</h3><form class="management-form" data-gallery-upload><input name="title" placeholder="Optional title prefix"><input name="caption" placeholder="Caption"><select name="category"><option value="portfolio">Portfolio</option><option value="photography">Photography</option><option value="videography">Videography</option><option value="weddings">Weddings</option><option value="portraits">Portraits</option><option value="events">Events</option><option value="fashion">Fashion</option><option value="commercial">Commercial</option></select><label>Select photos or videos<input name="file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple required></label><button class="admin-button" type="submit">Upload selected media</button><p class="management-status" aria-live="polite"></p></form><p>Selected: ${gallery.mediaStats.selected} · Approved: ${gallery.mediaStats.approved} · Total: ${gallery.mediaStats.total}</p><select data-gallery-filter><option value="all">All</option><option value="selected">Selected</option><option value="not-selected">Not Selected</option><option value="approved">Approved</option></select><div class="management-list" data-gallery-items></div><h3>Revision Requests</h3><div class="management-list">${revisions.length ? revisions.map((revision) => `<div class="management-item"><span><strong>${revision.galleryItem?.title || 'Media item'}</strong><small>${revision.message} · ${revision.status}</small></span><select data-revision-id="${revision._id}"><option ${revision.status === 'open' ? 'selected' : ''}>open</option><option ${revision.status === 'in-progress' ? 'selected' : ''}>in-progress</option><option ${revision.status === 'completed' ? 'selected' : ''}>completed</option><option ${revision.status === 'cancelled' ? 'selected' : ''}>cancelled</option></select></div>`).join('') : '<p class="management-empty">No revision requests.</p>'}</div></div>`;
       const renderItems = (filter = 'all') => { const items = gallery.items.filter((item) => filter === 'all' || (filter === 'selected' && item.selected) || (filter === 'not-selected' && !item.selected) || (filter === 'approved' && item.approved)); review.querySelector('[data-gallery-items]').innerHTML = items.map((item) => `<div class="management-item"><span><strong>${item.title || 'Untitled media'}</strong><small>${item.type} · ${item.selected ? 'Selected' : 'Not selected'} · ${item.approved ? 'Approved' : 'Not approved'} · ${item.downloadable ? 'Downloadable' : 'Not downloadable'}</small></span><span class="management-actions"><button data-media-approve="${item._id}">${item.approved ? 'Approved' : 'Approve'}</button><button data-media-download="${item._id}">${item.downloadable ? 'Remove download' : 'Allow download'}</button></span></div>`).join('') || '<p class="management-empty">No media matches this filter.</p>'; };
       renderItems();
+      const bulkActions = document.createElement('div');
+      bulkActions.className = 'management-actions gallery-bulk-actions';
+      bulkActions.innerHTML = '<button type="button" data-gallery-approve-all>Approve all</button><button type="button" data-gallery-download-all>Allow all downloads</button><p class="management-status" data-gallery-bulk-status aria-live="polite"></p>';
+      review.querySelector('.gallery-review > h3')?.after(bulkActions);
+      const runGalleryBulkUpdate = async (payload, confirmation, button) => {
+        const bulkStatus = bulkActions.querySelector('[data-gallery-bulk-status]');
+        if (!gallery.items.length) { bulkStatus.textContent = 'There are no files in this gallery yet.'; return; }
+        if (!window.confirm(confirmation)) return;
+        button.disabled = true;
+        bulkStatus.textContent = 'Updating all gallery media...';
+        try {
+          const result = await requestJson(`/api/galleries/${gallery._id}/media/bulk-update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          gallery.items.forEach((item) => { if (payload.approved !== undefined) { item.approved = payload.approved; item.approvedAt = payload.approved ? new Date().toISOString() : null; } if (payload.downloadable !== undefined) item.downloadable = payload.downloadable; });
+          renderItems(review.querySelector('[data-gallery-filter]').value);
+          const approvedCount = gallery.items.filter((item) => item.approved).length;
+          const total = gallery.items.length;
+          review.querySelector('.gallery-review > p')?.replaceChildren(`Selected: ${gallery.mediaStats.selected} · Approved: ${approvedCount} · Total: ${total}`);
+          bulkStatus.textContent = `${result.modifiedCount} media item(s) updated.`;
+        } catch (error) { bulkStatus.textContent = error.message; }
+        finally { button.disabled = false; }
+      };
+      bulkActions.querySelector('[data-gallery-approve-all]').addEventListener('click', (event) => runGalleryBulkUpdate({ approved: true }, `Approve all ${gallery.items.length} items in this gallery?`, event.currentTarget));
+      bulkActions.querySelector('[data-gallery-download-all]').addEventListener('click', (event) => runGalleryBulkUpdate({ downloadable: true }, `Allow clients to download all ${gallery.items.length} items in this gallery?`, event.currentTarget));
       review.querySelector('[data-gallery-upload]').addEventListener('submit', async (event) => {
         event.preventDefault();
         const form = event.currentTarget;
