@@ -87,7 +87,7 @@ async function getPublicContent(req, res, next) {
     };
     const publicTestimonials = testimonials.map((item) => ({ ...item, clientImage: mediaPublicUrl(item.clientImage) }));
     const publicPromotions = promotions.map((item) => ({ ...item, image: mediaPublicUrl(item.image) }));
-    const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
+    const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, caption: item.caption, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
     res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials: publicTestimonials, promotions: publicPromotions, services, packages, portfolio } });
   } catch (error) { next(error); }
 }
