@@ -197,12 +197,12 @@ function adminPanel(title, formMarkup, listId) {
 }
 
 function serviceForm() {
-  return '<form class="management-form" data-service-form><input name="name" placeholder="Service name" required><select name="category"><option>Photography</option><option>Videography</option><option>Weddings</option><option>Portraits</option><option>Events</option><option>Commercial</option><option>Other</option></select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><label>Service photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="admin-button" type="submit">Add service</button><p class="management-status" aria-live="polite"></p></form>';
+  return '<form class="management-form" data-service-form><input name="name" placeholder="Service name" required><select name="category"><option>Photography</option><option>Videography</option><option>Weddings</option><option>Portraits</option><option>Events</option><option>Commercial</option><option>Other</option></select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><label>Upload service image<input name="imageFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label><small class="management-hint">Optional. JPG, PNG, or WebP, up to 15 MB.</small><button class="admin-button" type="submit">Add service</button><p class="management-status" aria-live="polite"></p></form>';
 }
 
 function packageForm(services) {
   const options = services.map((service) => `<option value="${service._id}">${service.name}</option>`).join('');
-  return `<form class="management-form" data-package-form><input name="name" placeholder="Package name" required><select name="service" required>${options || '<option value="">Add a service first</option>'}</select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="selectionLimit" type="number" min="0" placeholder="Selected photo limit (optional)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><input name="features" placeholder="Features separated by commas"><label>Package photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="admin-button" type="submit">Add package</button><p class="management-status" aria-live="polite"></p></form>`;
+  return `<form class="management-form" data-package-form><input name="name" placeholder="Package name" required><select name="service" required>${options || '<option value="">Add a service first</option>'}</select><input name="price" type="number" min="0" placeholder="Price (XAF)"><input name="selectionLimit" type="number" min="0" placeholder="Selected photo limit (optional)"><input name="duration" placeholder="Duration"><input name="description" placeholder="Short description"><input name="features" placeholder="Features separated by commas"><label>Upload package image<input name="imageFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label><small class="management-hint">Optional. JPG, PNG, or WebP, up to 15 MB.</small><button class="admin-button" type="submit">Add package</button><p class="management-status" aria-live="polite"></p></form>`;
 }
 
 async function uploadCatalogImage(file, title, usage) {
@@ -218,7 +218,23 @@ async function uploadCatalogImage(file, title, usage) {
 }
 
 function renderManagementList(container, items, type) {
-  container.innerHTML = items.length ? items.map((item) => `<div class="management-item"><span><strong>${item.name}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${item.name}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span></div>`).join('') : '<p class="management-empty">No records yet.</p>';
+  container.innerHTML = items.length ? items.map((item) => `<div class="management-item">${item.image ? `<img src="${cmsEscape(item.image)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.name)}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><label class="management-image-upload">${item.image ? 'Replace image' : 'Upload image'}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-edit-image-type="${type}" data-edit-image-id="${item._id}" aria-label="${item.image ? 'Replace' : 'Upload'} image for ${cmsEscape(item.name)}"></label><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${cmsEscape(item.name)}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span></div>`).join('') : '<p class="management-empty">No records yet.</p>';
+  container.querySelectorAll('[data-edit-image-id]').forEach((input) => input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const item = items.find((entry) => entry._id === input.dataset.editImageId);
+    let uploadedAsset;
+    try {
+      uploadedAsset = await uploadCatalogImage(file, item.name, input.dataset.editImageType);
+      const endpoint = input.dataset.editImageType === 'service' ? 'services' : 'packages';
+      await requestJson(`/api/${endpoint}/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: uploadedAsset.publicUrl }) });
+      loadDashboardManagement();
+    } catch (error) {
+      if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {});
+      window.alert(error.message);
+      input.value = '';
+    }
+  }));
   container.querySelectorAll('[data-edit-id]').forEach((button) => {
     button.addEventListener('click', async () => {
       const name = window.prompt('Update name', button.dataset.editName);
