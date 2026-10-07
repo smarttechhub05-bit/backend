@@ -151,13 +151,89 @@ async function loadWebsitePanel(role) {
     const renderMedia = (media) => { mediaList.innerHTML = media.length ? media.map((item) => `<div class="management-item">${item.mimeType.startsWith('image/') ? `<img src="${cmsEscape(item.publicUrl || item.url)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.title)}</strong><small>${cmsEscape(item.usage)} · ${cmsEscape(item.mimeType)}</small></span><span class="management-actions"><button type="button" data-media-edit="${item._id}">Edit title</button><button type="button" data-media-delete="${item._id}">Delete</button></span></div>`).join('') : '<p class="management-empty">No media assets yet.</p>'; mediaList.querySelectorAll('[data-media-edit]').forEach((button) => button.addEventListener('click', async () => { const item = media.find((entry) => entry._id === button.dataset.mediaEdit); const title = window.prompt('Media title', item.title); if (!title?.trim() || title.trim() === item.title) return; try { const updated = await requestJson(`/api/website/admin/media/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.trim() }) }); Object.assign(item, updated); renderMedia(media); status.textContent = 'Media title updated.'; } catch (error) { status.textContent = error.message; } })); mediaList.querySelectorAll('[data-media-delete]').forEach((button) => button.addEventListener('click', async () => { try { await requestJson(`/api/website/admin/media/${button.dataset.mediaDelete}`, { method: 'DELETE' }); media.splice(media.findIndex((item) => item._id === button.dataset.mediaDelete), 1); renderMedia(media); status.textContent = 'Media asset deleted.'; } catch (error) { status.textContent = error.message; } })); };
     const media = await requestJson('/api/website/admin/media');
     renderMedia(media);
+    const cmsImageFields = [
+      ['homepage.heroImage', 'Homepage hero photo', homepage.heroImage],
+      ['homepage.aboutImage', 'Homepage studio photo', homepage.aboutImage],
+      ['about.image', 'About page portrait', about.image]
+    ];
+    const cmsImages = media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general');
+    cmsImageFields.forEach(([fieldName, labelText, currentValue]) => {
+      const field = panel.querySelector(`[name="${fieldName}"]`);
+      if (!field) return;
+      const label = document.createElement('label');
+      label.className = 'cms-image-field';
+      label.textContent = labelText;
+      const select = document.createElement('select');
+      select.name = fieldName;
+      select.innerHTML = '<option value="">Use local site photo</option>';
+      cmsImages.forEach((asset) => {
+        const option = document.createElement('option');
+        option.value = asset.publicUrl || `/api/website/public/media/${asset._id}`;
+        option.textContent = asset.title;
+        select.appendChild(option);
+      });
+      if (currentValue && ![...select.options].some((option) => option.value === currentValue)) {
+        const option = document.createElement('option');
+        option.value = currentValue;
+        option.textContent = 'Current saved image';
+        select.appendChild(option);
+      }
+      select.value = currentValue || '';
+      label.appendChild(select);
+      field.replaceWith(label);
+    });
+    const cmsImageSelects = [
+      ['homepage.heroImage', 'Homepage hero image', homepage.heroImage],
+      ['homepage.aboutImage', 'Homepage About image', homepage.aboutImage],
+      ['about.image', 'About page portrait', about.image]
+    ];
+    const imageAssets = media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general');
+    cmsImageSelects.forEach(([fieldName, labelText, currentValue]) => {
+      const field = panel.querySelector(`[name="${fieldName}"]`);
+      if (!field) return;
+      const label = document.createElement('label');
+      label.className = 'cms-image-field';
+      label.textContent = labelText;
+      const select = document.createElement('select');
+      select.name = fieldName;
+      select.innerHTML = '<option value="">Use local site photo</option>';
+      imageAssets.forEach((asset) => {
+        const option = document.createElement('option');
+        option.value = asset.publicUrl || `/api/website/public/media/${asset._id}`;
+        option.textContent = asset.title;
+        select.appendChild(option);
+      });
+      if (currentValue && ![...select.options].some((option) => option.value === currentValue)) {
+        const currentOption = document.createElement('option');
+        currentOption.value = currentValue;
+        currentOption.textContent = 'Current image';
+        select.appendChild(currentOption);
+      }
+      select.value = currentValue || '';
+      label.appendChild(select);
+      field.replaceWith(label);
+    });
+    const syncCmsImageOptions = () => {
+      panel.querySelectorAll('[name="homepage.heroImage"], [name="homepage.aboutImage"], [name="about.image"]').forEach((select) => {
+        const selectedValue = select.value;
+        select.replaceChildren(new Option('Use local site photo', ''));
+        media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general').forEach((asset) => {
+          const option = new Option(asset.title, asset.publicUrl || `/api/website/public/media/${asset._id}`);
+          select.appendChild(option);
+        });
+        if (selectedValue && ![...select.options].some((option) => option.value === selectedValue)) select.appendChild(new Option('Current saved image', selectedValue));
+        select.value = selectedValue;
+      });
+    };
+    syncCmsImageOptions();
+    new MutationObserver(syncCmsImageOptions).observe(mediaList, { childList: true });
     const imageOptions = media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general').map((item) => `<option value="media:${item._id}">${cmsEscape(item.title)}</option>`).join('');
     const testimonialForm = panel.querySelector('[data-testimonial-form]');
     const promotionForm = panel.querySelector('[data-promotion-form]');
     testimonialForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', `<label>Client image<select name="clientImage"><option value="">No image</option>${imageOptions}</select></label>`);
     promotionForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', '<label>Upload promotion poster<input name="imageFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label><small class="management-hint">JPG, PNG, or WebP, up to 15 MB.</small><p class="management-status" data-promotion-status></p>');
     testimonialForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', '<p class="management-status" data-testimonial-status></p>');
-    mediaPanel.querySelector('[data-media-form]').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const file = form.querySelector('[name="file"]').files[0]; const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime']; if (!file || !allowedTypes.includes(file.type)) { status.textContent = 'Unsupported file. Convert camera RAW files such as CR2 to JPG, PNG, or WebP first.'; return; } const button = form.querySelector('button[type="submit"]'); button.disabled = true; const formData = new FormData(form); try { const asset = await requestJson('/api/website/admin/media', { method: 'POST', body: formData }); media.unshift(asset); renderMedia(media); const option = asset.mimeType.startsWith('image/') && asset.usage !== 'general' ? `<option value="media:${asset._id}">${cmsEscape(asset.title)}</option>` : ''; panel.querySelectorAll('[name="clientImage"]').forEach((select) => { if (option) select.insertAdjacentHTML('beforeend', option); }); form.reset(); status.textContent = 'Media uploaded successfully.'; } catch (error) { status.textContent = error.message; } finally { button.disabled = false; } });
+    mediaPanel.querySelector('[data-media-form]').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const file = form.querySelector('[name="file"]').files[0]; const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime']; if (!file || !allowedTypes.includes(file.type)) { status.textContent = 'Unsupported file. Convert camera RAW files such as CR2 to JPG, PNG, or WebP first.'; return; } const button = form.querySelector('button[type="submit"]'); button.disabled = true; const formData = new FormData(form); try { const asset = await requestJson('/api/website/admin/media', { method: 'POST', body: formData }); media.unshift(asset); renderMedia(media); const option = asset.mimeType.startsWith('image/') && asset.usage !== 'general' ? `<option value="media:${asset._id}">${cmsEscape(asset.title)}</option>` : ''; panel.querySelectorAll('[name="clientImage"]').forEach((select) => { if (option) select.insertAdjacentHTML('beforeend', option); }); if (asset.mimeType.startsWith('image/') && asset.usage !== 'general') panel.querySelectorAll('[name="homepage.heroImage"], [name="homepage.aboutImage"], [name="about.image"]').forEach((select) => { const imageOption = document.createElement('option'); imageOption.value = asset.publicUrl || `/api/website/public/media/${asset._id}`; imageOption.textContent = asset.title; select.appendChild(imageOption); }); form.reset(); status.textContent = 'Media uploaded successfully.'; } catch (error) { status.textContent = error.message; } finally { button.disabled = false; } });
     const status = panel.querySelector('[data-cms-status]');
     panel.querySelector('[data-cms-settings]').addEventListener('submit', async (event) => { event.preventDefault(); const payload = { socialLinks: {}, homepage: {}, about: {}, published: event.currentTarget.published.checked }; for (const [key, value] of new FormData(event.currentTarget).entries()) { const parts = key.split('.'); if (parts.length === 1 && key !== 'published') payload[key] = value; else if (parts.length > 1) payload[parts[0]][parts[1]] = value; } try { await requestJson('/api/website/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); status.textContent = 'Changes saved successfully.'; } catch (error) { status.textContent = error.message; } });
     panel.querySelector('[data-testimonial-form]').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const formStatus = form.querySelector('[data-testimonial-status]'); const values = Object.fromEntries(new FormData(form).entries()); values.published = form.published.checked; const button = form.querySelector('button[type="submit"]'); button.disabled = true; try { const item = await requestJson('/api/website/admin/testimonials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }); const list = panel.querySelector('[data-testimonial-list]'); list.querySelector('.management-empty')?.remove(); list.insertAdjacentHTML('afterbegin', `<div class="management-item"><span><strong>${cmsEscape(item.clientName)}</strong><small>${cmsEscape(item.content)}</small></span><button type="button" data-testimonial-delete="${item._id}">Unpublish</button></div>`); panel.querySelector(`[data-testimonial-delete="${item._id}"]`).addEventListener('click', async (deleteEvent) => { try { await requestJson(`/api/website/admin/testimonials/${item._id}`, { method: 'DELETE' }); deleteEvent.currentTarget.closest('.management-item').remove(); } catch (error) { formStatus.textContent = error.message; } }); form.reset(); formStatus.textContent = 'Testimonial created.'; } catch (error) { formStatus.textContent = error.message; } finally { button.disabled = false; } });

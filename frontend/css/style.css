@@ -40,12 +40,12 @@ h3 { font-size: 1.65rem; }
 .nav-links a:hover, .nav-links a.active { opacity: 1; color: #f1b59d; }
 .nav-links .nav-cta { padding: 12px 15px; border: 1px solid rgba(255,255,255,.7); color: #fff; }
 .menu-toggle { display: none; border: 0; background: none; color: inherit; font-size: 1.5rem; cursor: pointer; }
-.hero { min-height: 760px; display: flex; align-items: end; padding: 170px 0 100px; color: #fff; background: linear-gradient(90deg, rgba(12,20,19,.78), rgba(12,20,19,.13)), url('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2200&q=85') center/cover; }
+.hero { min-height: 760px; display: flex; align-items: end; padding: 170px 0 100px; color: #fff; background: linear-gradient(90deg, rgba(12,20,19,.78), rgba(12,20,19,.13)), url('../assets/images/couple-portrait.jpeg') center 38%/cover; }
 .hero-content { max-width: 760px; }
 .hero h1 { margin-bottom: 26px; }
 .hero-copy { max-width: 510px; color: rgba(255,255,255,.83); font-size: 1.08rem; }
 .hero-actions { display: flex; gap: 14px; margin-top: 36px; }
-.page-hero { padding: 180px 0 100px; color: #fff; background: linear-gradient(90deg, rgba(12,20,19,.84), rgba(12,20,19,.25)), url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2200&q=85') center/cover; }
+.page-hero { padding: 180px 0 100px; color: #fff; background: linear-gradient(90deg, rgba(12,20,19,.84), rgba(12,20,19,.25)), url('../assets/images/fashion-portrait.jpeg') center 35%/cover; }
 .page-hero h1 { max-width: 780px; margin-bottom: 0; }
 .section { padding: 110px 0; }
 .section--cream { background: var(--cream); }

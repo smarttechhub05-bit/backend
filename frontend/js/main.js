@@ -56,6 +56,22 @@ function setText(selector, value) {
   if (element && value) element.textContent = value;
 }
 
+function siteImage(value, fallback) {
+  return value || fallback;
+}
+
+function catalogFallback(category) {
+  const images = {
+    Photography: 'studio-portrait.jpeg',
+    Portraits: 'studio-portrait.jpeg',
+    Weddings: 'couple-portrait.jpeg',
+    Events: 'fashion-portrait.jpeg',
+    Commercial: 'ceo.jpeg',
+    Videography: 'studio.jpeg'
+  };
+  return `assets/images/${images[category] || 'studio.jpeg'}`;
+}
+
 function normalizeCameroonPhone(value) {
   const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -116,14 +132,14 @@ async function loadPublicContent() {
       setText('.hero h1', homepage.heroHeadline);
       setText('.hero-copy', homepage.heroSubheadline);
       const hero = document.querySelector('.hero');
-      if (hero && homepage.heroImage) hero.style.backgroundImage = `url("${homepage.heroImage.replace(/"/g, '')}")`;
+      if (hero) hero.style.backgroundImage = `url("${siteImage(homepage.heroImage, 'assets/images/couple-portrait.jpeg').replace(/"/g, '')}")`;
       const heroButtons = document.querySelectorAll('.hero-actions a');
       if (homepage.primaryButtonText && heroButtons[0]) { heroButtons[0].textContent = homepage.primaryButtonText; heroButtons[0].href = homepage.primaryButtonLink || 'booking.html'; }
       if (homepage.secondaryButtonText && heroButtons[1]) { heroButtons[1].textContent = homepage.secondaryButtonText; heroButtons[1].href = homepage.secondaryButtonLink || 'portfolio.html'; }
       setText('.about-copy h2', homepage.aboutHeading);
       setText('.about-copy p:last-of-type', homepage.aboutDescription);
       const aboutImage = document.querySelector('.about-image');
-      if (aboutImage && homepage.aboutImage) aboutImage.src = homepage.aboutImage;
+      if (aboutImage) aboutImage.src = siteImage(homepage.aboutImage, 'assets/images/ceo.jpeg');
       const testimonialGrid = document.querySelector('.testimonial-grid');
       if (testimonialGrid) {
         testimonialGrid.innerHTML = content.testimonials?.length ? content.testimonials.map((item) => `<figure class="testimonial"><blockquote></blockquote><cite></cite></figure>`).join('') : '<p class="empty-state">No testimonials have been added yet.</p>';
@@ -135,7 +151,7 @@ async function loadPublicContent() {
           if (testimonial.clientImage) {
             const image = document.createElement('img');
             image.className = 'testimonial-avatar';
-            image.src = testimonial.clientImage;
+            image.src = siteImage(testimonial.clientImage, 'assets/images/ceo.jpeg');
             image.alt = '';
             image.loading = 'lazy';
             attribution.appendChild(image);
@@ -153,7 +169,7 @@ async function loadPublicContent() {
         band.querySelector('h2').textContent = promotion.title;
         band.querySelector('.cms-promotion-description').textContent = promotion.description || '';
         const promotionImage = band.querySelector('.cms-promotion-image');
-        if (promotion.image) { promotionImage.src = promotion.image; promotionImage.alt = `${promotion.title} promotion poster`; }
+        if (promotion.image) { promotionImage.src = siteImage(promotion.image, 'assets/images/studio.jpeg'); promotionImage.alt = `${promotion.title} promotion poster`; }
         else band.querySelector('.cms-promotion-poster').hidden = true;
         const link = band.querySelector('a');
         if (promotion.buttonText && promotion.buttonLink) { link.textContent = promotion.buttonText; link.href = promotion.buttonLink; link.hidden = false; }
@@ -166,7 +182,7 @@ async function loadPublicContent() {
       const story = document.querySelector('.about-copy');
       if (story && about.description) story.querySelectorAll('p')[1].textContent = about.description;
       if (story && about.story) story.querySelectorAll('p')[2].textContent = about.story;
-      const image = document.querySelector('.about-image'); if (image && about.image) image.src = about.image;
+      const image = document.querySelector('.about-image'); if (image) image.src = siteImage(about.image, 'assets/images/ceo.jpeg');
     }
     if (page.endsWith('/contact.html')) {
       const phone = settings.phone || '+237 675 681 696';
@@ -195,8 +211,7 @@ async function loadPublicContent() {
 }
 
 function serviceCard(service) {
-  const hasCustomImage = service.image && !service.image.includes('images.unsplash.com');
-  const image = hasCustomImage ? service.image : 'assets/images/studio.jpeg';
+  const image = siteImage(service.image, catalogFallback(service.category));
   return `<article class="service-card"><img src="${image}" alt="${service.name}"><div class="service-card-content"><h3>${service.name}</h3><p>${service.description || 'A considered studio service shaped around your story.'}</p><a class="text-link" href="booking.html?service=${service._id}">Book this service</a></div></article>`;
 }
 
@@ -217,7 +232,7 @@ async function loadServicesPage() {
     grid.closest('.section').after(packageSection);
     const packages = await getJson('/api/packages');
     const packageGrid = packageSection.querySelector('[data-packages-grid]');
-    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><img src="${item.image && !item.image.includes('images.unsplash.com') ? item.image : 'assets/images/studio.jpeg'}" alt="${item.name}"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
+    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><img src="${siteImage(item.image, catalogFallback(item.service?.category))}" alt="${item.name}"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
   } catch (error) {
     console.error(error);
   }
