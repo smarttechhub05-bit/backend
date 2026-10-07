@@ -21,6 +21,7 @@ router.put('/admin/promotions/:id', controller.updatePromotion);
 router.delete('/admin/promotions/:id', controller.deletePromotion);
 router.get('/admin/media', controller.listMedia);
 router.post('/admin/media', upload.single('file'), validateMediaSize, controller.uploadMedia);
+router.put('/admin/media/:id', controller.updateMedia);
 router.delete('/admin/media/:id', controller.deleteMedia);
 
 module.exports = router;

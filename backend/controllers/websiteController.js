@@ -77,7 +77,7 @@ async function getPublicContent(req, res, next) {
       Service.find({ active: true }).sort({ createdAt: -1 }).lean(),
       Package.find({ active: true }).populate('service', 'name category').sort({ createdAt: -1 }).lean(),
       Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean(),
-      MediaAsset.find({ usage: 'portfolio' }).select('title description altText url objectKey storageKey storageProvider mimeType category createdAt').sort({ createdAt: -1 }).limit(30).lean()
+      MediaAsset.find({ usage: 'portfolio' }).select('title description altText url objectKey storageKey storageProvider mimeType category createdAt').sort({ createdAt: -1 }).limit(100).lean()
     ]);
     const resolveMediaUrl = async (url, provider, key) => provider === 'cloudflare-r2' && key ? generateSignedUrl(key) : safeUrl(url);
     const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: await Promise.all((await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl title description altText category mimeType storageProvider objectKey storageKey').sort({ createdAt: 1 }).limit(12).lean()).map(async (item) => ({ ...item, fileUrl: await resolveMediaUrl(item.fileUrl, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.thumbnailUrl, item.storageProvider, item.objectKey || item.storageKey) }))) })));
@@ -161,6 +161,19 @@ async function uploadMedia(req, res, next) {
     res.status(201).json({ success: true, message: 'Media uploaded.', data: { ...asset.toObject(), publicUrl: `/api/website/public/media/${asset._id}` } });
   } catch (error) { next(error); }
 }
+async function updateMedia(req, res, next) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid media asset ID.' });
+  const updates = {};
+  for (const field of ['title', 'description', 'altText']) {
+    if (req.body[field] !== undefined) updates[field] = clean(req.body[field], field === 'title' ? 160 : field === 'altText' ? 250 : 1000);
+  }
+  if (!updates.title) return res.status(400).json({ success: false, message: 'A media title is required.' });
+  try {
+    const asset = await MediaAsset.findByIdAndUpdate(req.params.id, { $set: { ...updates, updatedBy: req.user._id } }, { new: true, runValidators: true }).lean();
+    if (!asset) return res.status(404).json({ success: false, message: 'Media asset not found.' });
+    res.json({ success: true, message: 'Media details updated.', data: { ...asset, publicUrl: `/api/website/public/media/${asset._id}` } });
+  } catch (error) { next(error); }
+}
 async function deleteMedia(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid media ID.' }); try { const asset = await MediaAsset.findByIdAndDelete(req.params.id); if (!asset) return res.status(404).json({ success: false, message: 'Media asset not found.' }); await deleteFile(asset.objectKey || asset.storageKey); res.json({ success: true, message: 'Media asset deleted.' }); } catch (error) { next(error); } }
 
-module.exports = { getPublicContent, getPublicMedia, getAdminSettings, updateSettings, listTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, listPromotions, createPromotion, updatePromotion, deletePromotion, listMedia, uploadMedia, deleteMedia };
+module.exports = { getPublicContent, getPublicMedia, getAdminSettings, updateSettings, listTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, listPromotions, createPromotion, updatePromotion, deletePromotion, listMedia, uploadMedia, updateMedia, deleteMedia };
