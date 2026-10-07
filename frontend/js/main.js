@@ -73,7 +73,8 @@ function renderPublicPortfolio(grid, portfolio) {
   const items = portfolio.flatMap((gallery) => gallery.items.map((item) => ({ ...item, category: String(item.category || gallery.project?.projectType || gallery.project?.type || 'portfolio').toLowerCase(), galleryTitle: gallery.title })));
   if (!items.length) { grid.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty-state', textContent: 'No portfolio content has been published yet.' })); return; }
   const homepage = grid.classList.contains('portfolio-grid');
-  grid.replaceChildren(...items.map((item) => {
+  const visibleItems = homepage ? items.slice(0, 8) : items;
+  grid.replaceChildren(...visibleItems.map((item) => {
     const title = String(item.title || item.galleryTitle || item.category || 'Selected work').trim();
     const caption = String(item.caption || item.description || title).trim();
     const card = document.createElement(homepage ? 'a' : 'figure');
