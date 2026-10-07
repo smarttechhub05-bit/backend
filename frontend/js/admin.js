@@ -182,37 +182,6 @@ async function loadWebsitePanel(role) {
       label.appendChild(select);
       field.replaceWith(label);
     });
-    const cmsImageSelects = [
-      ['homepage.heroImage', 'Homepage hero image', homepage.heroImage],
-      ['homepage.aboutImage', 'Homepage About image', homepage.aboutImage],
-      ['about.image', 'About page portrait', about.image]
-    ];
-    const imageAssets = media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general');
-    cmsImageSelects.forEach(([fieldName, labelText, currentValue]) => {
-      const field = panel.querySelector(`[name="${fieldName}"]`);
-      if (!field) return;
-      const label = document.createElement('label');
-      label.className = 'cms-image-field';
-      label.textContent = labelText;
-      const select = document.createElement('select');
-      select.name = fieldName;
-      select.innerHTML = '<option value="">Use local site photo</option>';
-      imageAssets.forEach((asset) => {
-        const option = document.createElement('option');
-        option.value = asset.publicUrl || `/api/website/public/media/${asset._id}`;
-        option.textContent = asset.title;
-        select.appendChild(option);
-      });
-      if (currentValue && ![...select.options].some((option) => option.value === currentValue)) {
-        const currentOption = document.createElement('option');
-        currentOption.value = currentValue;
-        currentOption.textContent = 'Current image';
-        select.appendChild(currentOption);
-      }
-      select.value = currentValue || '';
-      label.appendChild(select);
-      field.replaceWith(label);
-    });
     const syncCmsImageOptions = () => {
       panel.querySelectorAll('[name="homepage.heroImage"], [name="homepage.aboutImage"], [name="about.image"]').forEach((select) => {
         const selectedValue = select.value;

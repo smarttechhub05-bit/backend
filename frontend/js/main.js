@@ -57,7 +57,7 @@ function setText(selector, value) {
 }
 
 function siteImage(value, fallback) {
-  return value || fallback;
+  return value && !/^(?:https?:)?\/\//i.test(value) ? value : fallback;
 }
 
 function catalogFallback(category) {
