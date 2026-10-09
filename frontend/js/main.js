@@ -75,17 +75,15 @@ function setHeroImage(hero, value) {
   preload.src = imageUrl;
 }
 
-function isPromotionDismissed(promotion) {
+function isPromotionMinimized(promotion) {
   try {
-    return Boolean(localStorage.getItem(`rap-eugene-promotion-dismissed:${promotion._id || promotion.title}`));
+    return Boolean(localStorage.getItem(`rap-eugene-promotion-minimized:${promotion._id || promotion.title}`));
   } catch (error) {}
   return false;
 }
 
 function showPromotionNotification(promotion) {
-  const notificationKey = `rap-eugene-promotion-dismissed:${promotion._id || promotion.title}`;
-  if (isPromotionDismissed(promotion)) return;
-
+  const notificationKey = `rap-eugene-promotion-minimized:${promotion._id || promotion.title}`;
   const notification = document.createElement('aside');
   notification.className = 'promotion-notification';
   notification.setAttribute('role', 'status');
@@ -93,11 +91,25 @@ function showPromotionNotification(promotion) {
   const closeButton = document.createElement('button');
   closeButton.className = 'promotion-notification-close';
   closeButton.type = 'button';
-  closeButton.setAttribute('aria-label', 'Dismiss promotion');
+  closeButton.setAttribute('aria-label', 'Minimize promotion');
   closeButton.textContent = '×';
   closeButton.addEventListener('click', () => {
-    try { localStorage.setItem(notificationKey, 'dismissed'); } catch (error) {}
-    notification.remove();
+    try { localStorage.setItem(notificationKey, 'minimized'); } catch (error) {}
+    notification.hidden = true;
+    launcher.hidden = false;
+  });
+
+  const launcher = document.createElement('button');
+  launcher.className = 'promotion-launcher';
+  launcher.type = 'button';
+  launcher.setAttribute('aria-label', `View promotion: ${promotion.title}`);
+  launcher.title = `View promotion: ${promotion.title}`;
+  launcher.innerHTML = '<span class="promotion-launcher-icon" aria-hidden="true">%</span><span class="promotion-launcher-label">Offer</span>';
+  launcher.addEventListener('click', () => {
+    try { localStorage.removeItem(notificationKey); } catch (error) {}
+    launcher.hidden = true;
+    notification.hidden = false;
+    closeButton.focus();
   });
 
   if (promotion.image) {
@@ -132,7 +144,9 @@ function showPromotionNotification(promotion) {
   }
 
   notification.append(copy, closeButton);
-  document.body.appendChild(notification);
+  notification.hidden = isPromotionMinimized(promotion);
+  launcher.hidden = !notification.hidden;
+  document.body.append(notification, launcher);
 }
 
 function catalogFallback(category) {
@@ -244,7 +258,7 @@ async function loadPublicContent() {
         });
       }
     }
-    const promotion = content.promotions?.find((item) => !isPromotionDismissed(item));
+    const promotion = content.promotions?.[0];
     if (promotion) showPromotionNotification(promotion);
     if (page.endsWith('/about.html')) {
       setText('.page-hero h1', about.heading);
