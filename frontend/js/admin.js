@@ -154,8 +154,18 @@ async function loadWebsitePanel(role) {
     const cmsImageFields = [
       ['homepage.heroImage', 'Homepage hero photo', homepage.heroImage, 'couple-portrait.jpeg', 'hero'],
       ['homepage.aboutImage', 'Homepage studio photo', homepage.aboutImage, 'ceo.jpeg', 'about'],
+      ['homepage.photographyImage', 'Homepage Photography tile', homepage.photographyImage, 'couple-portrait.jpeg', 'service'],
+      ['homepage.videographyImage', 'Homepage Videography tile', homepage.videographyImage, 'studio.jpeg', 'service'],
+      ['homepage.eventsImage', 'Homepage Events tile', homepage.eventsImage, 'fashion-portrait.jpeg', 'service'],
+      ['homepage.contentCreationImage', 'Homepage Content Creation tile', homepage.contentCreationImage, 'ceo.jpeg', 'service'],
       ['about.image', 'About page portrait', about.image, 'ceo.jpeg', 'about']
     ];
+    cmsImageFields.slice(2, 6).forEach(([fieldName]) => {
+      const field = document.createElement('input');
+      field.type = 'hidden';
+      field.name = fieldName;
+      panel.querySelector('[data-cms-settings]').appendChild(field);
+    });
     const cmsImageEditors = [];
     cmsImageFields.forEach(([fieldName, labelText, currentValue, fallback, usage]) => {
       const field = panel.querySelector(`[name="${fieldName}"]`);
@@ -326,7 +336,9 @@ async function loadDashboardManagement() {
   const management = document.createElement('div');
   management.dataset.managementPanels = 'true';
   management.className = 'dashboard-grid management-grid';
-  management.appendChild(adminPanel('Services', serviceForm(), 'service-management-list'));
+  const servicesPanel = adminPanel('Services', serviceForm(), 'service-management-list');
+  servicesPanel.id = 'services';
+  management.appendChild(servicesPanel);
   management.appendChild(adminPanel('Packages', packageForm(services), 'package-management-list'));
   dashboardGrid.after(management);
   renderManagementList(document.querySelector('#service-management-list'), services, 'service');

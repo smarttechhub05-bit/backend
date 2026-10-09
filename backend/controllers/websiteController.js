@@ -9,7 +9,7 @@ const textFields = new Set([
   'businessHours', 'mapUrl', 'seoTitle', 'seoDescription', 'seoKeywords', 'socialSharingImage', 'homepageHero', 'aboutText', 'footerText'
 ]);
 const nestedFields = {
-  homepage: ['heroHeadline', 'heroSubheadline', 'heroImage', 'heroVideo', 'primaryButtonText', 'primaryButtonLink', 'secondaryButtonText', 'secondaryButtonLink', 'aboutHeading', 'aboutDescription', 'aboutImage', 'whyHeading', 'bookingCtaHeading', 'bookingCtaDescription'],
+  homepage: ['heroHeadline', 'heroSubheadline', 'heroImage', 'heroVideo', 'photographyImage', 'videographyImage', 'eventsImage', 'contentCreationImage', 'primaryButtonText', 'primaryButtonLink', 'secondaryButtonText', 'secondaryButtonLink', 'aboutHeading', 'aboutDescription', 'aboutImage', 'whyHeading', 'bookingCtaHeading', 'bookingCtaDescription'],
   about: ['heading', 'description', 'story', 'mission', 'vision', 'whyChooseUs', 'image'],
   footer: ['description', 'copyright', 'privacyLink', 'termsLink']
 };

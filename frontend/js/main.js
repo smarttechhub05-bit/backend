@@ -140,6 +140,13 @@ async function loadPublicContent() {
       setText('.about-copy p:last-of-type', homepage.aboutDescription);
       const aboutImage = document.querySelector('.about-image');
       if (aboutImage) aboutImage.src = siteImage(homepage.aboutImage, 'assets/images/ceo.jpeg');
+      const serviceImages = [homepage.photographyImage, homepage.videographyImage, homepage.eventsImage, homepage.contentCreationImage];
+      document.querySelectorAll('.service-grid .service-card img').forEach((image, index) => {
+        const cardName = image.closest('.service-card')?.querySelector('h3')?.textContent.trim().toLowerCase();
+        const catalogImage = content.services?.find((service) => service.name?.trim().toLowerCase() === cardName)?.image;
+        const imageSource = serviceImages[index] || catalogImage;
+        if (imageSource) image.src = siteImage(imageSource, image.src);
+      });
       const testimonialGrid = document.querySelector('.testimonial-grid');
       if (testimonialGrid) {
         testimonialGrid.innerHTML = content.testimonials?.length ? content.testimonials.map((item) => `<figure class="testimonial"><blockquote></blockquote><cite></cite></figure>`).join('') : '<p class="empty-state">No testimonials have been added yet.</p>';
