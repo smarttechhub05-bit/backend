@@ -217,29 +217,30 @@ async function loadPublicContent() {
   } catch (error) { console.error('Public CMS content unavailable:', error.message); }
 }
 
-function serviceCard(service) {
+function escapeMarkup(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+}
+
+function serviceCard(service, packages = []) {
   const image = siteImage(service.image, catalogFallback(service.category));
-  return `<article class="service-card"><img src="${image}" alt="${service.name}"><div class="service-card-content"><h3>${service.name}</h3><p>${service.description || 'A considered studio service shaped around your story.'}</p><a class="text-link" href="booking.html?service=${service._id}">Book this service</a></div></article>`;
+  const servicePackages = packages.filter((item) => String(item.service?._id || item.service || '') === String(service._id));
+  const packageList = servicePackages.length ? servicePackages.map((item) => `<li class="service-package"><div><strong>${escapeMarkup(item.name)}</strong><p>${escapeMarkup(item.description || '')}</p><small>${item.price ? `${Number(item.price).toLocaleString()} XAF` : 'Price on enquiry'} · ${escapeMarkup(item.duration || 'Flexible duration')}</small></div><a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}&amp;package=${encodeURIComponent(item._id)}">Choose</a></li>`).join('') : '<li class="service-package-empty">Packages coming soon.</li>';
+  return `<article class="service-card"><img src="${escapeMarkup(image)}" alt="${escapeMarkup(service.name)}"><div class="service-card-content"><h3>${escapeMarkup(service.name)}</h3><p>${escapeMarkup(service.description || 'A considered studio service shaped around your story.')}</p><a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}">Book this service</a><section class="service-packages" aria-label="${escapeMarkup(service.name)} packages"><h4>Packages</h4><ul class="service-package-list">${packageList}</ul></section></div></article>`;
 }
 
 async function loadServicesPage() {
   if (!window.location.pathname.endsWith('/services.html')) return;
   const grid = document.querySelector('.service-grid');
   if (!grid) return;
+  grid.classList.add('services-page-grid');
   const staticEventCard = [...grid.querySelectorAll('.service-card')].find((card) => card.querySelector('h3')?.textContent.trim() === 'Events');
   const staticEventImage = staticEventCard?.querySelector('img');
   if (staticEventImage) { staticEventImage.src = 'assets/images/studio.jpeg'; staticEventImage.alt = 'Rap Eugene Studio'; }
   try {
     const services = await getJson('/api/services');
-    if (services.length) grid.innerHTML = services.map(serviceCard).join('');
-    services.forEach((service) => trackAnalytics('service_view', service._id));
-    const packageSection = document.createElement('section');
-    packageSection.className = 'section';
-    packageSection.innerHTML = '<div class="container"><div class="section-heading"><div><p class="eyebrow">Packages</p><h2>Simple options, thoughtfully shaped.</h2></div></div><div class="service-grid" data-packages-grid></div></div>';
-    grid.closest('.section').after(packageSection);
     const packages = await getJson('/api/packages');
-    const packageGrid = packageSection.querySelector('[data-packages-grid]');
-    packageGrid.innerHTML = packages.length ? packages.map((item) => `<article class="service-card"><img src="${siteImage(item.image, catalogFallback(item.service?.category))}" alt="${item.name}"><div class="service-card-content"><h3>${item.name}</h3><p>${item.description || 'A flexible package for your next project.'}</p><p>${item.price ? `${item.price.toLocaleString()} XAF` : 'Price on enquiry'} · ${item.duration || 'Flexible duration'}</p><a class="text-link" href="booking.html?service=${item.service?._id || ''}&package=${item._id}">Choose package</a></div></article>`).join('') : '<p>No packages published yet. Check back soon.</p>';
+    if (services.length) grid.innerHTML = services.map((service) => serviceCard(service, packages)).join('');
+    services.forEach((service) => trackAnalytics('service_view', service._id));
   } catch (error) {
     console.error(error);
   }
