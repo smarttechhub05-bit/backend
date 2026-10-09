@@ -60,6 +60,76 @@ function siteImage(value, fallback) {
   return value && !/^(?:https?:)?\/\//i.test(value) ? value : fallback;
 }
 
+function setHeroImage(hero, value) {
+  const fallback = 'assets/images/couple-portrait.jpeg';
+  const imageUrl = value && !/^(?:https?:)?\/\//i.test(value) ? value : fallback;
+  const preload = new Image();
+  preload.onload = () => {
+    hero.style.backgroundImage = `linear-gradient(90deg, rgba(12,20,19,.78), rgba(12,20,19,.13)), url("${imageUrl.replace(/"/g, '')}")`;
+    hero.classList.remove('hero--image-pending');
+  };
+  preload.onerror = () => {
+    if (imageUrl !== fallback) setHeroImage(hero, fallback);
+    else hero.classList.remove('hero--image-pending');
+  };
+  preload.src = imageUrl;
+}
+
+function showPromotionNotification(promotion) {
+  const notificationKey = `rap-eugene-promotion-dismissed:${promotion._id || promotion.title}`;
+  try {
+    if (localStorage.getItem(notificationKey)) return;
+  } catch (error) {}
+
+  const notification = document.createElement('aside');
+  notification.className = 'promotion-notification';
+  notification.setAttribute('role', 'status');
+  notification.setAttribute('aria-label', 'Studio promotion');
+  const closeButton = document.createElement('button');
+  closeButton.className = 'promotion-notification-close';
+  closeButton.type = 'button';
+  closeButton.setAttribute('aria-label', 'Dismiss promotion');
+  closeButton.textContent = '×';
+  closeButton.addEventListener('click', () => {
+    try { localStorage.setItem(notificationKey, 'dismissed'); } catch (error) {}
+    notification.remove();
+  });
+
+  if (promotion.image) {
+    const image = document.createElement('img');
+    image.className = 'promotion-notification-image';
+    image.src = siteImage(promotion.image, 'assets/images/studio.jpeg');
+    image.alt = '';
+    image.loading = 'lazy';
+    notification.appendChild(image);
+  }
+
+  const copy = document.createElement('div');
+  copy.className = 'promotion-notification-copy';
+  const eyebrow = document.createElement('p');
+  eyebrow.className = 'eyebrow';
+  eyebrow.textContent = 'Studio promotion';
+  const title = document.createElement('h2');
+  title.textContent = promotion.title;
+  copy.append(eyebrow, title);
+  if (promotion.description) {
+    const description = document.createElement('p');
+    description.className = 'promotion-notification-description';
+    description.textContent = promotion.description;
+    copy.appendChild(description);
+  }
+  if (promotion.buttonText && promotion.buttonLink) {
+    const link = document.createElement('a');
+    link.className = 'promotion-notification-action';
+    link.textContent = promotion.buttonText;
+    link.href = promotion.buttonLink;
+    copy.appendChild(link);
+  }
+
+  notification.append(copy, closeButton);
+  document.body.appendChild(notification);
+}
+
 function catalogFallback(category) {
   const images = {
     Photography: 'studio-portrait.jpeg',
@@ -132,7 +202,7 @@ async function loadPublicContent() {
       setText('.hero h1', homepage.heroHeadline);
       setText('.hero-copy', homepage.heroSubheadline);
       const hero = document.querySelector('.hero');
-      if (hero) hero.style.backgroundImage = `url("${siteImage(homepage.heroImage, 'assets/images/couple-portrait.jpeg').replace(/"/g, '')}")`;
+      if (hero) setHeroImage(hero, homepage.heroImage);
       const heroButtons = document.querySelectorAll('.hero-actions a');
       if (homepage.primaryButtonText && heroButtons[0]) { heroButtons[0].textContent = homepage.primaryButtonText; heroButtons[0].href = homepage.primaryButtonLink || 'booking.html'; }
       if (homepage.secondaryButtonText && heroButtons[1]) { heroButtons[1].textContent = homepage.secondaryButtonText; heroButtons[1].href = homepage.secondaryButtonLink || 'portfolio.html'; }
@@ -168,21 +238,9 @@ async function loadPublicContent() {
           attribution.appendChild(name);
         });
       }
-      const promotion = content.promotions?.[0];
-      if (promotion) {
-        const band = document.createElement('section');
-        band.className = 'cms-promotion';
-        band.innerHTML = '<div class="container cms-promotion-layout"><div class="cms-promotion-poster"><img class="cms-promotion-image" alt=""></div><div class="cms-promotion-copy"><p class="eyebrow">Studio promotion</p><h2></h2><p class="cms-promotion-description"></p><a class="btn" hidden></a></div></div>';
-        band.querySelector('h2').textContent = promotion.title;
-        band.querySelector('.cms-promotion-description').textContent = promotion.description || '';
-        const promotionImage = band.querySelector('.cms-promotion-image');
-        if (promotion.image) { promotionImage.src = siteImage(promotion.image, 'assets/images/studio.jpeg'); promotionImage.alt = `${promotion.title} promotion poster`; }
-        else band.querySelector('.cms-promotion-poster').hidden = true;
-        const link = band.querySelector('a');
-        if (promotion.buttonText && promotion.buttonLink) { link.textContent = promotion.buttonText; link.href = promotion.buttonLink; link.hidden = false; }
-        document.querySelector('main > .hero')?.after(band);
-      }
     }
+    const promotion = content.promotions?.[0];
+    if (promotion) showPromotionNotification(promotion);
     if (page.endsWith('/about.html')) {
       setText('.page-hero h1', about.heading);
       setText('.about-copy h2', about.heading);
@@ -214,7 +272,10 @@ async function loadPublicContent() {
       const contactText = footer.querySelector('.footer-grid > div:last-child'); if (contactText) { const lines = contactText.querySelectorAll('p'); if (lines[0] && settings.phone) lines[0].textContent = `Phone: ${settings.phone}`; if (lines[1] && settings.email) lines[1].textContent = `Email: ${settings.email}`; if (lines[2] && settings.WhatsApp) lines[2].textContent = `WhatsApp: ${settings.WhatsApp}`; if (lines[3]) lines[3].textContent = `Location: ${[settings.address, settings.city, settings.country].filter(Boolean).join(', ') || 'Limbe, Cameroon'}`; }
       const copyright = footer.querySelector('.footer-bottom span'); if (copyright && settings.footer?.copyright) copyright.textContent = settings.footer.copyright;
     }
-  } catch (error) { console.error('Public CMS content unavailable:', error.message); }
+  } catch (error) {
+    document.querySelector('.hero--image-pending')?.classList.remove('hero--image-pending');
+    console.error('Public CMS content unavailable:', error.message);
+  }
 }
 
 function escapeMarkup(value) {
