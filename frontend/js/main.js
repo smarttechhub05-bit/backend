@@ -75,11 +75,16 @@ function setHeroImage(hero, value) {
   preload.src = imageUrl;
 }
 
+function isPromotionDismissed(promotion) {
+  try {
+    return Boolean(localStorage.getItem(`rap-eugene-promotion-dismissed:${promotion._id || promotion.title}`));
+  } catch (error) {}
+  return false;
+}
+
 function showPromotionNotification(promotion) {
   const notificationKey = `rap-eugene-promotion-dismissed:${promotion._id || promotion.title}`;
-  try {
-    if (localStorage.getItem(notificationKey)) return;
-  } catch (error) {}
+  if (isPromotionDismissed(promotion)) return;
 
   const notification = document.createElement('aside');
   notification.className = 'promotion-notification';
@@ -239,7 +244,7 @@ async function loadPublicContent() {
         });
       }
     }
-    const promotion = content.promotions?.[0];
+    const promotion = content.promotions?.find((item) => !isPromotionDismissed(item));
     if (promotion) showPromotionNotification(promotion);
     if (page.endsWith('/about.html')) {
       setText('.page-hero h1', about.heading);
