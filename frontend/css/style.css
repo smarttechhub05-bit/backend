@@ -60,9 +60,15 @@ h3 { font-size: 1.65rem; }
 .service-card-content { padding: 24px; }
 .service-card h3 { margin-bottom: 10px; }
 .service-card p { min-height: 52px; color: var(--muted); font-size: .9rem; }
-.service-packages { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
-.service-packages h4 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 1.2rem; font-weight: 400; }
+.service-packages { margin-top: 22px; border-top: 1px solid var(--line); }
+.service-packages summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 10px 2px; color: var(--ink); cursor: pointer; font-size: .78rem; font-weight: 700; list-style: none; }
+.service-packages summary::-webkit-details-marker { display: none; }
+.service-packages summary::after { content: '+'; display: grid; width: 26px; height: 26px; flex: 0 0 26px; place-items: center; border: 1px solid var(--line); color: var(--rust); font-size: 1.05rem; font-weight: 400; }
+.service-packages[open] summary::after { content: '−'; }
+.service-packages summary:focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; }
+.service-package-count { display: inline-grid; min-width: 24px; height: 24px; margin-left: auto; place-items: center; border-radius: 50%; background: var(--paper); color: var(--muted); font-size: .68rem; }
 .service-package-list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.service-packages[open] .service-package-list { padding: 0 0 8px; }
 .service-package { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .service-package strong { font-size: .88rem; }
 .service-package p { min-height: 0; margin: 4px 0; font-size: .8rem; }

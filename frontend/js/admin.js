@@ -286,7 +286,19 @@ async function uploadCatalogImage(file, title, usage) {
 }
 
 function renderManagementList(container, items, type) {
-  container.innerHTML = items.length ? items.map((item) => `<div class="management-item">${item.image ? `<img src="${cmsEscape(item.image)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.name)}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><label class="management-image-upload">${item.image ? 'Replace image' : 'Upload image'}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-edit-image-type="${type}" data-edit-image-id="${item._id}" aria-label="${item.image ? 'Replace' : 'Upload'} image for ${cmsEscape(item.name)}"></label><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${cmsEscape(item.name)}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span></div>`).join('') : '<p class="management-empty">No records yet.</p>';
+  const renderItem = (item) => `<div class="management-item">${item.image ? `<img src="${cmsEscape(item.image)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.name)}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><label class="management-image-upload">${item.image ? 'Replace image' : 'Upload image'}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-edit-image-type="${type}" data-edit-image-id="${item._id}" aria-label="${item.image ? 'Replace' : 'Upload'} image for ${cmsEscape(item.name)}"></label><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${cmsEscape(item.name)}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span></div>`;
+  if (type === 'package' && items.length) {
+    const groups = new Map();
+    items.forEach((item) => {
+      const serviceId = String(item.service?._id || item.service || 'unassigned');
+      const serviceName = item.service?.name || 'Unassigned service';
+      if (!groups.has(serviceId)) groups.set(serviceId, { name: serviceName, items: [] });
+      groups.get(serviceId).items.push(item);
+    });
+    container.innerHTML = [...groups.values()].map((group) => `<details class="admin-package-group"><summary><span>${cmsEscape(group.name)}</span><span class="admin-package-count">${group.items.length}</span></summary><div class="admin-package-items">${group.items.map(renderItem).join('')}</div></details>`).join('');
+  } else {
+    container.innerHTML = items.length ? items.map(renderItem).join('') : '<p class="management-empty">No records yet.</p>';
+  }
   container.querySelectorAll('[data-edit-image-id]').forEach((input) => input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
