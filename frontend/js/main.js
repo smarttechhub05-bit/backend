@@ -331,6 +331,12 @@ async function loadServicesPage() {
   if (staticEventImage) { staticEventImage.src = 'assets/images/studio.jpeg'; staticEventImage.alt = 'Rap Eugene Studio'; }
   try {
     const [services, packages, publicContent] = await Promise.all([getJson('/api/services'), getJson('/api/packages'), getJson('/api/website/public/content')]);
+    const socialContentService = services.find((service) => service.name?.trim().toLowerCase() === 'social media content creation');
+    const featureImage = document.querySelector('.services-feature-image img');
+    if (featureImage && socialContentService?.image) {
+      featureImage.src = siteImage(socialContentService.image, featureImage.src);
+      featureImage.alt = `${socialContentService.name} service image`;
+    }
     const requestedPromotion = new URLSearchParams(window.location.search).get('promotion');
     const promotion = publicContent.promotions?.find((item) => item._id === requestedPromotion && Number(item.discountPercentage) > 0);
     if (services.length) grid.innerHTML = services.map((service) => {
