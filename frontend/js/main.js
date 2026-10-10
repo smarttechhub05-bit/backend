@@ -57,12 +57,14 @@ function setText(selector, value) {
 }
 
 function siteImage(value, fallback) {
-  return value && !/^(?:https?:)?\/\//i.test(value) ? value : fallback;
+  const imageUrl = String(value || '').trim();
+  if (!imageUrl || /^(?:javascript|data):/i.test(imageUrl)) return fallback;
+  return imageUrl;
 }
 
 function setHeroImage(hero, value) {
   const fallback = 'assets/images/couple-portrait.jpeg';
-  const imageUrl = value && !/^(?:https?:)?\/\//i.test(value) ? value : fallback;
+  const imageUrl = siteImage(value, fallback);
   const preload = new Image();
   preload.onload = () => {
     hero.style.backgroundImage = `linear-gradient(90deg, rgba(12,20,19,.78), rgba(12,20,19,.13)), url("${imageUrl.replace(/"/g, '')}")`;
@@ -236,9 +238,23 @@ async function loadPublicContent() {
       const serviceImages = [homepage.photographyImage, homepage.videographyImage, homepage.eventsImage, homepage.contentCreationImage];
       document.querySelectorAll('.service-grid .service-card img').forEach((image, index) => {
         const cardName = image.closest('.service-card')?.querySelector('h3')?.textContent.trim().toLowerCase();
-        const catalogImage = content.services?.find((service) => service.name?.trim().toLowerCase() === cardName)?.image;
+        const aliases = {
+          photography: ['photography', 'portrait'],
+          videography: ['videography', 'video'],
+          events: ['event'],
+          'content creation': ['content creation', 'social media content']
+        }[cardName] || [cardName];
+        const catalogService = content.services?.find((service) => {
+          const name = service.name?.trim().toLowerCase() || '';
+          const category = service.category?.trim().toLowerCase() || '';
+          return name === cardName || aliases.some((alias) => name.includes(alias) || category === alias);
+        });
+        const catalogImage = catalogService?.image;
         const imageSource = serviceImages[index] || catalogImage;
-        if (imageSource) image.src = siteImage(imageSource, image.src);
+        if (imageSource) {
+          image.src = siteImage(imageSource, image.src);
+          image.onerror = () => { image.onerror = null; image.src = `assets/images/${['couple-portrait.jpeg', 'studio.jpeg', 'fashion-portrait.jpeg', 'ceo.jpeg'][index] || 'studio.jpeg'}`; };
+        }
       });
       const testimonialGrid = document.querySelector('.testimonial-grid');
       if (testimonialGrid) {

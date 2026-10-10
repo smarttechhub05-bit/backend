@@ -185,7 +185,8 @@ async function loadWebsitePanel(role) {
       const localFallback = `assets/images/${fallback}`;
       const setSelection = (url) => {
         select.value = url || '';
-        preview.src = url && !/^(?:https?:)?\/\//i.test(url) ? url : localFallback;
+        const imageUrl = url?.startsWith('media:') ? `/api/website/public/media/${url.slice(6)}` : url;
+        preview.src = imageUrl && !/^(?:javascript|data):/i.test(imageUrl) ? imageUrl : localFallback;
       };
       media.filter((item) => item.mimeType.startsWith('image/')).forEach((asset) => {
         const option = new Option(asset.title, asset.publicUrl || `/api/website/public/media/${asset._id}`);
