@@ -131,6 +131,7 @@ async function loadWebsitePanel(role) {
     const settings = await requestJson('/api/website/admin/settings');
     const testimonials = await requestJson('/api/website/admin/testimonials');
     const promotions = await requestJson('/api/website/admin/promotions');
+    const promotionServices = await requestJson('/api/services');
     const homepage = settings.homepage || {};
     const about = settings.about || {};
     const social = settings.socialLinks || {};
@@ -227,6 +228,10 @@ async function loadWebsitePanel(role) {
     const imageOptions = media.filter((item) => item.mimeType.startsWith('image/') && item.usage !== 'general').map((item) => `<option value="media:${item._id}">${cmsEscape(item.title)}</option>`).join('');
     const testimonialForm = panel.querySelector('[data-testimonial-form]');
     const promotionForm = panel.querySelector('[data-promotion-form]');
+    promotionForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', `<label>Discount percentage<input name="discountPercentage" type="number" min="1" max="100" step="1" placeholder="e.g. 20" required></label><label>Applies to<select name="serviceScope"><option value="all">All services</option><option value="selected">Selected services</option></select></label><label data-promotion-service-field hidden>Eligible services<select name="services" multiple size="5">${promotionServices.map((service) => `<option value="${service._id}">${cmsEscape(service.name)}</option>`).join('')}</select></label><input type="hidden" name="promotionId" value=""><input type="hidden" name="image" value=""><small class="management-hint">The percentage applies to the selected service price or its package price.</small>`);
+    const promotionScope = promotionForm?.querySelector('[name="serviceScope"]');
+    promotionScope?.addEventListener('change', () => { promotionForm.querySelector('[data-promotion-service-field]').hidden = promotionScope.value !== 'selected'; });
+    promotionForm?.querySelector('[name="discountPercentage"]')?.setAttribute('required', 'required');
     testimonialForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', `<label>Client image<select name="clientImage"><option value="">No image</option>${imageOptions}</select></label>`);
     promotionForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', '<label>Upload promotion poster<input name="imageFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label><small class="management-hint">JPG, PNG, or WebP, up to 15 MB.</small><p class="management-status" data-promotion-status></p>');
     testimonialForm?.querySelector('button[type="submit"]')?.insertAdjacentHTML('beforebegin', '<p class="management-status" data-testimonial-status></p>');
@@ -234,12 +239,77 @@ async function loadWebsitePanel(role) {
     const status = panel.querySelector('[data-cms-status]');
     panel.querySelector('[data-cms-settings]').addEventListener('submit', async (event) => { event.preventDefault(); const payload = { socialLinks: {}, homepage: {}, about: {}, published: event.currentTarget.published.checked }; for (const [key, value] of new FormData(event.currentTarget).entries()) { const parts = key.split('.'); if (parts.length === 1 && key !== 'published') payload[key] = value; else if (parts.length > 1) payload[parts[0]][parts[1]] = value; } try { await requestJson('/api/website/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); status.textContent = 'Changes saved successfully.'; } catch (error) { status.textContent = error.message; } });
     panel.querySelector('[data-testimonial-form]').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const formStatus = form.querySelector('[data-testimonial-status]'); const values = Object.fromEntries(new FormData(form).entries()); values.published = form.published.checked; const button = form.querySelector('button[type="submit"]'); button.disabled = true; try { const item = await requestJson('/api/website/admin/testimonials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }); const list = panel.querySelector('[data-testimonial-list]'); list.querySelector('.management-empty')?.remove(); list.insertAdjacentHTML('afterbegin', `<div class="management-item"><span><strong>${cmsEscape(item.clientName)}</strong><small>${cmsEscape(item.content)}</small></span><button type="button" data-testimonial-delete="${item._id}">Unpublish</button></div>`); panel.querySelector(`[data-testimonial-delete="${item._id}"]`).addEventListener('click', async (deleteEvent) => { try { await requestJson(`/api/website/admin/testimonials/${item._id}`, { method: 'DELETE' }); deleteEvent.currentTarget.closest('.management-item').remove(); } catch (error) { formStatus.textContent = error.message; } }); form.reset(); formStatus.textContent = 'Testimonial created.'; } catch (error) { formStatus.textContent = error.message; } finally { button.disabled = false; } });
-    const renderPromotionItem = (item) => `<div class="management-item"><span><strong>${cmsEscape(item.title)}</strong><small>${item.active && item.published ? 'Published' : 'Draft / inactive'}</small></span>${item.active && item.published ? `<button type="button" data-promotion-delete="${item._id}">Unpublish</button>` : `<button type="button" data-promotion-publish="${item._id}">Publish</button>`}</div>`;
-    panel.querySelectorAll('[data-promotion-delete]').forEach((button) => button.addEventListener('click', async () => { try { await requestJson(`/api/website/admin/promotions/${button.dataset.promotionDelete}`, { method: 'DELETE' }); button.closest('.management-item').remove(); status.textContent = 'Promotion unpublished.'; } catch (error) { status.textContent = error.message; } }));
-    panel.querySelectorAll('[data-promotion-publish]').forEach((button) => button.addEventListener('click', async () => { try { const item = promotions.find((promotionItem) => promotionItem._id === button.dataset.promotionPublish); await requestJson(`/api/website/admin/promotions/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, active: true, published: true }) }); item.active = true; item.published = true; button.closest('.management-item').outerHTML = renderPromotionItem(item); const replacement = panel.querySelector(`[data-promotion-delete="${item._id}"]`); replacement?.addEventListener('click', async () => { try { await requestJson(`/api/website/admin/promotions/${item._id}`, { method: 'DELETE' }); replacement.closest('.management-item').remove(); } catch (error) { status.textContent = error.message; } }); status.textContent = 'Promotion published.'; } catch (error) { status.textContent = error.message; } }));
-    panel.querySelector('[data-promotion-form]').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const formStatus = form.querySelector('[data-promotion-status]'); const values = Object.fromEntries(new FormData(form).entries()); const imageFile = values.imageFile; delete values.imageFile; values.active = form.active.checked; values.published = form.published.checked; const button = form.querySelector('button[type="submit"]'); button.disabled = true; let uploadedAsset; try { if (imageFile?.size) { uploadedAsset = await uploadCatalogImage(imageFile, `${values.title} poster`, 'promotion'); values.image = uploadedAsset.publicUrl; } const item = await requestJson('/api/website/admin/promotions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }); promotions.unshift(item); form.parentElement.querySelector('.management-empty')?.remove(); form.insertAdjacentHTML('afterend', renderPromotionItem(item)); const newItem = form.parentElement.querySelector(`[data-promotion-delete="${item._id}"], [data-promotion-publish="${item._id}"]`); if (newItem?.dataset.promotionDelete) newItem.addEventListener('click', async () => { try { await requestJson(`/api/website/admin/promotions/${item._id}`, { method: 'DELETE' }); newItem.closest('.management-item').remove(); } catch (error) { formStatus.textContent = error.message; } }); form.reset(); form.active.checked = true; form.published.checked = true; formStatus.textContent = 'Promotion created.'; } catch (error) { if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {}); formStatus.textContent = error.message; } finally { button.disabled = false; } });
+    const renderPromotionItem = (item) => `<div class="management-item"><span><strong>${cmsEscape(item.title)}</strong><small>${item.discountPercentage || 0}% off · ${item.serviceScope === 'selected' ? `${item.services?.length || 0} selected services` : 'All services'} · ${item.active && item.published ? 'Published' : 'Draft / inactive'}</small></span><span class="management-actions"><button type="button" data-promotion-edit="${item._id}">Edit</button>${item.active && item.published ? `<button type="button" data-promotion-delete="${item._id}">Unpublish</button>` : `<button type="button" data-promotion-publish="${item._id}">Publish</button>`}</span></div>`;
+    const promotionList = promotionForm.parentElement.querySelector('.management-list');
+    const renderPromotions = () => promotionList.replaceChildren(...promotions.map((item) => { const wrapper = document.createElement('div'); wrapper.innerHTML = renderPromotionItem(item); return wrapper.firstElementChild; }));
+    promotionList.addEventListener('click', async (event) => {
+      const editButton = event.target.closest('[data-promotion-edit]');
+      const deleteButton = event.target.closest('[data-promotion-delete]');
+      const publishButton = event.target.closest('[data-promotion-publish]');
+      const promotionId = editButton?.dataset.promotionEdit || deleteButton?.dataset.promotionDelete || publishButton?.dataset.promotionPublish;
+      const item = promotions.find((promotion) => promotion._id === promotionId);
+      if (!item) return;
+      try {
+        if (editButton) {
+          for (const field of ['title', 'description', 'startDate', 'endDate', 'buttonText', 'buttonLink', 'discountPercentage']) promotionForm.elements[field].value = field.endsWith('Date') ? String(item[field] || '').slice(0, 10) : item[field] || '';
+          promotionForm.elements.image.value = item.image || '';
+          promotionForm.elements.serviceScope.value = item.serviceScope || 'all';
+          promotionForm.elements.services.querySelectorAll('option').forEach((option) => { option.selected = (item.services || []).some((id) => String(id?._id || id) === option.value); });
+          promotionForm.querySelector('[data-promotion-service-field]').hidden = item.serviceScope !== 'selected';
+          promotionForm.elements.promotionId.value = item._id;
+          promotionForm.active.checked = item.active;
+          promotionForm.published.checked = item.published;
+          promotionForm.querySelector('button[type="submit"]').textContent = 'Save Promotion';
+          promotionForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (deleteButton) {
+          await requestJson(`/api/website/admin/promotions/${item._id}`, { method: 'DELETE' });
+          item.active = false;
+          item.published = false;
+          renderPromotions();
+          status.textContent = 'Promotion unpublished.';
+        } else if (publishButton) {
+          const updated = await requestJson(`/api/website/admin/promotions/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, active: true, published: true }) });
+          Object.assign(item, updated);
+          renderPromotions();
+          status.textContent = 'Promotion published.';
+        }
+      } catch (error) { status.textContent = error.message; }
+    });
+    renderPromotions();
+    promotionForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formStatus = form.querySelector('[data-promotion-status]');
+      const values = Object.fromEntries(new FormData(form).entries());
+      const imageFile = values.imageFile;
+      const promotionId = values.promotionId;
+      values.services = [...form.elements.services.selectedOptions].map((option) => option.value);
+      delete values.imageFile;
+      delete values.promotionId;
+      values.active = form.active.checked;
+      values.published = form.published.checked;
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      let uploadedAsset;
+      try {
+        if (imageFile?.size) { uploadedAsset = await uploadCatalogImage(imageFile, `${values.title} poster`, 'promotion'); values.image = uploadedAsset.publicUrl; }
+        const saved = await requestJson(promotionId ? `/api/website/admin/promotions/${promotionId}` : '/api/website/admin/promotions', { method: promotionId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+        if (promotionId) Object.assign(promotions.find((item) => item._id === promotionId), saved);
+        else promotions.unshift(saved);
+        renderPromotions();
+        form.reset();
+        form.elements.promotionId.value = '';
+        form.querySelector('[data-promotion-service-field]').hidden = true;
+        form.querySelector('button[type="submit"]').textContent = 'Add Promotion';
+        form.active.checked = true;
+        form.published.checked = true;
+        formStatus.textContent = promotionId ? 'Promotion updated.' : 'Promotion created.';
+      } catch (error) {
+        if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {});
+        formStatus.textContent = error.message;
+      } finally { button.disabled = false; }
+    });
     panel.querySelectorAll('[data-testimonial-delete]').forEach((button) => button.addEventListener('click', async () => { await requestJson(`/api/website/admin/testimonials/${button.dataset.testimonialDelete}`, { method: 'DELETE' }); button.closest('.management-item').remove(); status.textContent = 'Testimonial unpublished.'; }));
-    panel.querySelectorAll('[data-promotion-delete]').forEach((button) => button.addEventListener('click', async () => { await requestJson(`/api/website/admin/promotions/${button.dataset.promotionDelete}`, { method: 'DELETE' }); button.closest('.management-item').remove(); status.textContent = 'Promotion unpublished.'; }));
   } catch (error) { console.error(error); }
 }
 
@@ -414,11 +484,13 @@ async function loadBookings() {
       const whatsappPhone = phone.replace(/[^\d]/g, '');
       const message = `Hello ${booking.client?.fullName || ''}, this is Rap Eugene Studio regarding your booking request for ${booking.service?.name || 'your session'}${booking.package?.name ? ` (${booking.package.name})` : ''}. We would like to discuss the details of your booking with you.`;
       const contact = `${whatsappPhone ? `<a class="admin-button" target="_blank" rel="noopener" href="https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}">WhatsApp Customer</a>` : ''}${phone ? `<a class="admin-button" href="tel:${phone.replace(/[^\d+]/g, '')}">Call Customer</a>` : ''}${email ? `<a class="admin-button" href="mailto:${email}">Email Customer</a>` : ''}` || '<span>No customer contact details available.</span>';
+      const pricing = booking.pricingSnapshot;
+      const priceSummary = pricing?.promotion ? `<br><strong>${cmsEscape(pricing.promotionTitle)}</strong>: ${pricing.discountPercentage}% off · ${Number(pricing.originalPrice).toLocaleString()} XAF − ${Number(pricing.discountAmount).toLocaleString()} XAF = <strong>${Number(pricing.finalPrice).toLocaleString()} XAF</strong>` : '';
       const projectAction = booking.status === 'confirmed' && !booking.project ? `<button type="button" data-booking-project="${booking._id}">Create Project</button>` : '';
       const details = document.createElement('section');
       details.dataset.bookingDetails = 'true';
       details.className = 'booking-details';
-      details.innerHTML = `<h3>Booking Details</h3><p><strong>Client</strong><br>${booking.client?.fullName || 'Client unavailable'}<br>${phone || 'No phone provided'}<br>${email || 'No email provided'}</p><p><strong>Booking</strong><br>${booking.service?.name || 'Service unavailable'}${booking.package?.name ? ` · ${booking.package.name}` : ''}<br>${formatStudioDate(booking.preferredDate)} · ${booking.preferredTime || 'Time not specified'}<br>${booking.eventType || 'Event type not specified'}<br>${booking.message || 'No customer message.'}<br>Status: ${booking.status}<br>Created: ${formatStudioDate(booking.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</p><div class="management-actions"><select data-booking-status="${booking._id}">${['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'].map((status) => `<option value="${status}" ${status === booking.status ? 'selected' : ''}>${status}</option>`).join('')}</select>${projectAction}</div><h4>Contact Customer</h4><div class="management-actions">${contact}</div><h4>Internal Notes</h4><textarea data-booking-notes rows="3" placeholder="Operational notes only">${booking.notes || ''}</textarea><button type="button" data-booking-save-notes="${booking._id}">Save Notes</button><p class="management-status" data-booking-status-message></p>`;
+      details.innerHTML = `<h3>Booking Details</h3><p><strong>Client</strong><br>${booking.client?.fullName || 'Client unavailable'}<br>${phone || 'No phone provided'}<br>${email || 'No email provided'}</p><p><strong>Booking</strong><br>${booking.service?.name || 'Service unavailable'}${booking.package?.name ? ` · ${booking.package.name}` : ''}${priceSummary}<br>${formatStudioDate(booking.preferredDate)} · ${booking.preferredTime || 'Time not specified'}<br>${booking.eventType || 'Event type not specified'}<br>${booking.message || 'No customer message.'}<br>Status: ${booking.status}<br>Created: ${formatStudioDate(booking.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</p><div class="management-actions"><select data-booking-status="${booking._id}">${['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'].map((status) => `<option value="${status}" ${status === booking.status ? 'selected' : ''}>${status}</option>`).join('')}</select>${projectAction}</div><h4>Contact Customer</h4><div class="management-actions">${contact}</div><h4>Internal Notes</h4><textarea data-booking-notes rows="3" placeholder="Operational notes only">${booking.notes || ''}</textarea><button type="button" data-booking-save-notes="${booking._id}">Save Notes</button><p class="management-status" data-booking-status-message></p>`;
       panel?.appendChild(details);
       details.querySelector('[data-booking-status]')?.addEventListener('change', async (event) => {
         try { await requestJson(`/api/bookings/${bookingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: event.target.value }) }); event.target.closest('.booking-details').querySelector('[data-booking-status-message]').textContent = 'Booking status updated.'; } catch (error) { event.target.closest('.booking-details').querySelector('[data-booking-status-message]').textContent = error.message; }

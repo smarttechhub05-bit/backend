@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { WebsiteSettings, Testimonial, Promotion, MediaAsset, Service, Package, Gallery, GalleryItem } = require('../models');
 const { uploadFile, deleteFile, getSignedUrl: generateSignedUrl } = require('../services/storageService');
+const { isPromotionCurrent } = require('../services/promotionPricing');
 
 const portfolioCategories = ['photography', 'videography', 'weddings', 'portraits', 'events', 'fashion', 'commercial', 'portfolio'];
 
@@ -44,13 +45,24 @@ function cleanTestimonial(payload) {
 function cleanPromotion(payload) {
   const startDate = payload.startDate ? new Date(payload.startDate) : null;
   const endDate = payload.endDate ? new Date(payload.endDate) : null;
+  const discountPercentage = Math.max(0, Math.min(100, Number(payload.discountPercentage) || 0));
+  const serviceScope = payload.serviceScope === 'selected' ? 'selected' : 'all';
   return {
     title: clean(payload.title, 120), description: clean(payload.description, 500), image: clean(payload.image, 500),
+    discountPercentage, serviceScope,
+    services: serviceScope === 'selected' && Array.isArray(payload.services) ? [...new Set(payload.services.map(String).filter((id) => mongoose.isValidObjectId(id)))].map((id) => new mongoose.Types.ObjectId(id)) : [],
     startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : null,
     endDate: endDate && !Number.isNaN(endDate.getTime()) ? endDate : null,
     active: payload.active !== false, published: payload.published !== false,
     buttonText: clean(payload.buttonText, 80), buttonLink: clean(payload.buttonLink, 500)
   };
+}
+
+async function validatePromotionServices(data) {
+  if (!Number.isFinite(data.discountPercentage) || data.discountPercentage < 1 || data.discountPercentage > 100) return 'Discount percentage must be between 1 and 100.';
+  if (data.serviceScope === 'selected' && !data.services.length) return 'Choose at least one service for a selected-services promotion.';
+  if (data.services.length && await Service.countDocuments({ _id: { $in: data.services } }) !== data.services.length) return 'One or more selected services do not exist.';
+  return '';
 }
 
 function safeUrl(value) {
@@ -73,7 +85,7 @@ async function getPublicContent(req, res, next) {
     const now = new Date();
     const [testimonials, promotions, services, packages, publicGalleries, portfolioMedia] = await Promise.all([
       Testimonial.find({ active: true, published: true }).sort({ displayOrder: 1, createdAt: -1 }).select('clientName content rating clientImage featured displayOrder').lean(),
-      Promotion.find({ active: true, published: true, $and: [{ $or: [{ startDate: null }, { startDate: { $lte: now } }] }, { $or: [{ endDate: null }, { endDate: { $gte: now } }] }] }).sort({ createdAt: -1 }).select('title description image buttonText buttonLink startDate endDate').lean(),
+      Promotion.find({ active: true, published: true, discountPercentage: { $gt: 0 }, $and: [{ $or: [{ startDate: null }, { startDate: { $lte: now } }] }, { $or: [{ endDate: null }, { endDate: { $gte: now } }] }] }).sort({ createdAt: -1 }).select('title description image buttonText buttonLink startDate endDate discountPercentage serviceScope services').lean(),
       Service.find({ active: true }).sort({ createdAt: -1 }).lean(),
       Package.find({ active: true }).populate('service', 'name category').sort({ createdAt: -1 }).lean(),
       Gallery.find({ accessStatus: 'public', galleryStatus: { $in: ['active', 'completed', 'ready'] }, accessRevokedAt: null }).select('title description coverImage project createdAt').populate('project', 'title projectType type').sort({ createdAt: -1 }).limit(30).lean(),
@@ -86,7 +98,7 @@ async function getPublicContent(req, res, next) {
       return match ? `/api/website/public/media/${match[1]}` : safeUrl(value);
     };
     const publicTestimonials = testimonials.map((item) => ({ ...item, clientImage: mediaPublicUrl(item.clientImage) }));
-    const publicPromotions = promotions.map((item) => ({ ...item, image: mediaPublicUrl(item.image) }));
+    const publicPromotions = promotions.filter((item) => isPromotionCurrent(item, now)).map((item) => ({ ...item, image: mediaPublicUrl(item.image) }));
     const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, caption: item.caption, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
     res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials: publicTestimonials, promotions: publicPromotions, services, packages, portfolio } });
   } catch (error) { next(error); }
@@ -132,8 +144,8 @@ async function deleteTestimonial(req, res, next) {
 }
 
 async function listPromotions(req, res, next) { try { res.json({ success: true, data: await Promotion.find().sort({ createdAt: -1 }).lean() }); } catch (error) { next(error); } }
-async function createPromotion(req, res, next) { try { const data = cleanPromotion(req.body); if (!data.title) return res.status(400).json({ success: false, message: 'Promotion title is required.' }); data.updatedBy = req.user._id; res.status(201).json({ success: true, message: 'Promotion created.', data: await Promotion.create(data) }); } catch (error) { next(error); } }
-async function updatePromotion(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid promotion ID.' }); try { const data = { ...cleanPromotion(req.body), updatedBy: req.user._id }; const promotion = await Promotion.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true }); if (!promotion) return res.status(404).json({ success: false, message: 'Promotion not found.' }); res.json({ success: true, message: 'Promotion updated.', data: promotion }); } catch (error) { next(error); } }
+async function createPromotion(req, res, next) { try { const data = cleanPromotion(req.body); if (!data.title) return res.status(400).json({ success: false, message: 'Promotion title is required.' }); const validationError = await validatePromotionServices(data); if (validationError) return res.status(400).json({ success: false, message: validationError }); data.updatedBy = req.user._id; res.status(201).json({ success: true, message: 'Promotion created.', data: await Promotion.create(data) }); } catch (error) { next(error); } }
+async function updatePromotion(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid promotion ID.' }); try { const data = { ...cleanPromotion(req.body), updatedBy: req.user._id }; if (!data.title) return res.status(400).json({ success: false, message: 'Promotion title is required.' }); const validationError = await validatePromotionServices(data); if (validationError) return res.status(400).json({ success: false, message: validationError }); const promotion = await Promotion.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true }); if (!promotion) return res.status(404).json({ success: false, message: 'Promotion not found.' }); res.json({ success: true, message: 'Promotion updated.', data: promotion }); } catch (error) { next(error); } }
 async function deletePromotion(req, res, next) { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid promotion ID.' }); try { const promotion = await Promotion.findByIdAndUpdate(req.params.id, { active: false, published: false, updatedBy: req.user._id }, { new: true }); if (!promotion) return res.status(404).json({ success: false, message: 'Promotion not found.' }); res.json({ success: true, message: 'Promotion unpublished.', data: promotion }); } catch (error) { next(error); } }
 
 async function listMedia(req, res, next) { try { const media = await MediaAsset.find().sort({ createdAt: -1 }).lean(); res.json({ success: true, data: media.map((item) => ({ ...item, publicUrl: `/api/website/public/media/${item._id}` })) }); } catch (error) { next(error); } }

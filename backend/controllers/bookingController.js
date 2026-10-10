@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
-const { Booking, Client, Service, Package, Project } = require('../models');
+const { Booking, Client, Service, Package, Project, Promotion } = require('../models');
 const { notifyManagers } = require('../services/notificationService');
+const { isPromotionCurrent, promotionAppliesToService, calculateDiscount } = require('../services/promotionPricing');
 
 const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'];
 
@@ -83,13 +84,28 @@ async function createBooking(req, res, next) {
   try {
     const references = await validateReferences(req.body.service, req.body.package, true);
     if (references.error) return res.status(references.error.includes('not found') ? 404 : 400).json({ success: false, message: references.error });
+    let promotion = null;
+    if (req.body.promotion) {
+      if (!mongoose.isValidObjectId(req.body.promotion)) return res.status(400).json({ success: false, message: 'Invalid promotion.' });
+      promotion = await Promotion.findById(req.body.promotion).lean();
+      if (!isPromotionCurrent(promotion) || !promotionAppliesToService(promotion, references.service._id)) return res.status(409).json({ success: false, message: 'This promotion is no longer available for the selected service.' });
+    }
+    const originalPrice = references.package ? references.package.price : references.service.price;
+    const pricingSnapshot = {
+      promotion: promotion?._id || null,
+      promotionTitle: promotion?.title || '',
+      ...calculateDiscount(originalPrice, promotion?.discountPercentage || 0)
+    };
+    const servicePricing = calculateDiscount(references.service.price, promotion?.discountPercentage || 0);
+    const packagePricing = references.package ? calculateDiscount(references.package.price, promotion?.discountPercentage || 0) : null;
     const client = await findOrCreateClient(req.body);
     const booking = await Booking.create({
       client: client._id,
       service: req.body.service,
       package: req.body.package || null,
-      serviceSnapshot: { name: references.service.name, price: references.service.price, duration: references.service.duration },
-      packageSnapshot: references.package ? { name: references.package.name, price: references.package.price, duration: references.package.duration } : undefined,
+      serviceSnapshot: { name: references.service.name, price: servicePricing.finalPrice, duration: references.service.duration },
+      packageSnapshot: references.package ? { name: references.package.name, price: packagePricing.finalPrice, duration: references.package.duration } : undefined,
+      pricingSnapshot,
       preferredDate: new Date(req.body.preferredDate),
       preferredTime: req.body.preferredTime || '',
       eventType: req.body.eventType || '',

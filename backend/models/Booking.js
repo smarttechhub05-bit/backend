@@ -14,6 +14,14 @@ const bookingSchema = new mongoose.Schema({
     price: { type: Number, default: 0 },
     duration: { type: String, default: '' }
   },
+  pricingSnapshot: {
+    promotion: { type: mongoose.Schema.Types.ObjectId, ref: 'Promotion', default: null },
+    promotionTitle: { type: String, default: '' },
+    discountPercentage: { type: Number, min: 0, max: 100, default: 0 },
+    originalPrice: { type: Number, min: 0, default: 0 },
+    discountAmount: { type: Number, min: 0, default: 0 },
+    finalPrice: { type: Number, min: 0, default: 0 }
+  },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null },
   preferredDate: { type: Date, required: true },
   preferredTime: { type: String, default: '' },

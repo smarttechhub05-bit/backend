@@ -129,19 +129,23 @@ function showPromotionNotification(promotion) {
   const title = document.createElement('h2');
   title.textContent = promotion.title;
   copy.append(eyebrow, title);
+  if (Number(promotion.discountPercentage) > 0) {
+    const discount = document.createElement('p');
+    discount.className = 'promotion-notification-discount';
+    discount.textContent = `${promotion.discountPercentage}% off eligible services`;
+    copy.appendChild(discount);
+  }
   if (promotion.description) {
     const description = document.createElement('p');
     description.className = 'promotion-notification-description';
     description.textContent = promotion.description;
     copy.appendChild(description);
   }
-  if (promotion.buttonText && promotion.buttonLink) {
-    const link = document.createElement('a');
-    link.className = 'promotion-notification-action';
-    link.textContent = promotion.buttonText;
-    link.href = promotion.buttonLink;
-    copy.appendChild(link);
-  }
+  const link = document.createElement('a');
+  link.className = 'promotion-notification-action';
+  link.textContent = promotion.buttonText || 'View discounted services';
+  link.href = `services.html?promotion=${encodeURIComponent(promotion._id)}`;
+  copy.appendChild(link);
 
   notification.append(copy, closeButton);
   notification.hidden = isPromotionMinimized(promotion);
@@ -301,11 +305,20 @@ function escapeMarkup(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
 }
 
-function serviceCard(service, packages = []) {
+function discountedPriceMarkup(price, promotion) {
+  const original = Number(price) || 0;
+  if (!promotion || original <= 0) return original ? `${original.toLocaleString()} XAF` : 'Price on enquiry';
+  const discount = Math.round(original * Number(promotion.discountPercentage || 0) / 100);
+  return `<del>${original.toLocaleString()} XAF</del> <strong class="discounted-price">${(original - discount).toLocaleString()} XAF</strong><small class="discount-badge">${promotion.discountPercentage}% off</small>`;
+}
+
+function serviceCard(service, packages = [], promotion = null) {
   const image = siteImage(service.image, catalogFallback(service.category));
   const servicePackages = packages.filter((item) => String(item.service?._id || item.service || '') === String(service._id));
-  const packageList = servicePackages.length ? servicePackages.map((item) => `<li class="service-package"><div><strong>${escapeMarkup(item.name)}</strong><p>${escapeMarkup(item.description || '')}</p><small>${item.price ? `${Number(item.price).toLocaleString()} XAF` : 'Price on enquiry'} · ${escapeMarkup(item.duration || 'Flexible duration')}</small></div><a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}&amp;package=${encodeURIComponent(item._id)}">Choose</a></li>`).join('') : '<li class="service-package-empty">Packages coming soon.</li>';
-  return `<article class="service-card"><img src="${escapeMarkup(image)}" alt="${escapeMarkup(service.name)}"><div class="service-card-content"><h3>${escapeMarkup(service.name)}</h3><p>${escapeMarkup(service.description || 'A considered studio service shaped around your story.')}</p><a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}">Book this service</a><details class="service-packages"><summary><span>Packages</span><span class="service-package-count">${servicePackages.length}</span></summary><ul class="service-package-list">${packageList}</ul></details></div></article>`;
+  const promotionQuery = promotion ? `&amp;promotion=${encodeURIComponent(promotion._id)}` : '';
+  const packageList = servicePackages.length ? servicePackages.map((item) => `<li class="service-package"><div><strong>${escapeMarkup(item.name)}</strong><p>${escapeMarkup(item.description || '')}</p><small>${discountedPriceMarkup(item.price, promotion)} · ${escapeMarkup(item.duration || 'Flexible duration')}</small></div><a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}&amp;package=${encodeURIComponent(item._id)}${promotionQuery}">Choose</a></li>`).join('') : '<li class="service-package-empty">Packages coming soon.</li>';
+  const servicePrice = promotion ? `<p class="service-price">${discountedPriceMarkup(service.price, promotion)}${service.duration ? ` · ${escapeMarkup(service.duration)}` : ''}</p>` : '';
+  return `<article class="service-card"><img src="${escapeMarkup(image)}" alt="${escapeMarkup(service.name)}"><div class="service-card-content"><h3>${escapeMarkup(service.name)}</h3><p>${escapeMarkup(service.description || 'A considered studio service shaped around your story.')}</p>${servicePrice}<a class="text-link" href="booking.html?service=${encodeURIComponent(service._id)}${promotionQuery}">Book this service</a><details class="service-packages"><summary><span>Packages</span><span class="service-package-count">${servicePackages.length}</span></summary><ul class="service-package-list">${packageList}</ul></details></div></article>`;
 }
 
 async function loadServicesPage() {
@@ -317,9 +330,13 @@ async function loadServicesPage() {
   const staticEventImage = staticEventCard?.querySelector('img');
   if (staticEventImage) { staticEventImage.src = 'assets/images/studio.jpeg'; staticEventImage.alt = 'Rap Eugene Studio'; }
   try {
-    const services = await getJson('/api/services');
-    const packages = await getJson('/api/packages');
-    if (services.length) grid.innerHTML = services.map((service) => serviceCard(service, packages)).join('');
+    const [services, packages, publicContent] = await Promise.all([getJson('/api/services'), getJson('/api/packages'), getJson('/api/website/public/content')]);
+    const requestedPromotion = new URLSearchParams(window.location.search).get('promotion');
+    const promotion = publicContent.promotions?.find((item) => item._id === requestedPromotion);
+    if (services.length) grid.innerHTML = services.map((service) => {
+      const applies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === String(service._id)));
+      return serviceCard(service, packages, applies ? promotion : null);
+    }).join('');
     services.forEach((service) => trackAnalytics('service_view', service._id));
   } catch (error) {
     console.error(error);
@@ -333,6 +350,15 @@ async function loadBookingOptions() {
   trackAnalytics('booking_started');
   const serviceSelect = form.querySelector('[name="service"]');
   if (!serviceSelect) return;
+  const query = new URLSearchParams(window.location.search);
+  const promotionId = query.get('promotion');
+  if (promotionId) {
+    const promotionField = document.createElement('input');
+    promotionField.type = 'hidden';
+    promotionField.name = 'promotion';
+    promotionField.value = promotionId;
+    form.appendChild(promotionField);
+  }
   let packageSelect = form.querySelector('[name="package"]');
   if (!packageSelect) {
     packageSelect = document.createElement('select');
@@ -348,18 +374,41 @@ async function loadBookingOptions() {
   }
   try {
     const services = await getJson('/api/services');
-    serviceSelect.innerHTML = '<option value="">Choose a service</option>' + services.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
-    const packages = await getJson('/api/packages');
+    const [packages, publicContent] = await Promise.all([getJson('/api/packages'), getJson('/api/website/public/content')]);
+    const promotion = publicContent.promotions?.find((item) => item._id === promotionId);
+    const priceLabel = (price, applies) => applies && promotion ? `${Math.round(price * (100 - promotion.discountPercentage) / 100).toLocaleString()} XAF (${promotion.discountPercentage}% off; was ${price.toLocaleString()} XAF)` : `${price.toLocaleString()} XAF`;
+    serviceSelect.innerHTML = '<option value="">Choose a service</option>' + services.map((item) => { const applies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === String(item._id))); return `<option value="${item._id}">${item.name}${item.price ? ` - ${priceLabel(item.price, applies)}` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`; }).join('');
     const updatePackages = () => {
       const selected = packages.filter((item) => item.service && item.service._id === serviceSelect.value);
-        packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${item.price.toLocaleString()} XAF` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
+        const promotionApplies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === serviceSelect.value));
+        packageSelect.innerHTML = '<option value="">No package selected</option>' + selected.map((item) => `<option value="${item._id}">${item.name}${item.price ? ` - ${priceLabel(item.price, promotionApplies)}` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`).join('');
         packageSelect.disabled = selected.length === 0;
     };
     serviceSelect.addEventListener('change', updatePackages);
-    const query = new URLSearchParams(window.location.search);
     if (query.get('service') && services.some((item) => item._id === query.get('service'))) serviceSelect.value = query.get('service');
     updatePackages();
     if (query.get('package') && packages.some((item) => item._id === query.get('package'))) packageSelect.value = query.get('package');
+    if (promotionId && promotion) {
+      const promotionAppliesToSelection = () => promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === serviceSelect.value);
+      serviceSelect.addEventListener('change', () => {
+        let field = form.querySelector('[name="promotion"]');
+        let note = form.querySelector('.booking-promotion-note');
+        if (field && !promotionAppliesToSelection()) {
+          field.remove();
+          note = document.createElement('p');
+          note.className = 'booking-promotion-note';
+          note.textContent = 'The selected service is not included in this promotion. Its regular price will apply.';
+          serviceSelect.closest('.form-field')?.after(note);
+        } else if (!field && promotionAppliesToSelection()) {
+          field = document.createElement('input');
+          field.type = 'hidden';
+          field.name = 'promotion';
+          field.value = promotionId;
+          form.appendChild(field);
+          note?.remove();
+        }
+      });
+    }
   } catch (error) {
     console.error(error);
     packageSelect.innerHTML = '<option value="">Packages unavailable</option>';
