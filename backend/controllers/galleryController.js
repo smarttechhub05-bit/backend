@@ -172,6 +172,12 @@ async function updateMedia(req, res, next) {
     if (!(await Gallery.findOne({ _id: item.gallery, ...(await scopedFilter(req.user)) }))) return res.status(404).json({ success: false, message: 'Media not found.' });
     const updates = {};
     ['title', 'description', 'selected', 'approved', 'downloadable', 'editedFileUrl', 'editedThumbnailUrl'].forEach((field) => { if (req.body[field] !== undefined) updates[field] = req.body[field]; });
+    if (req.body.downloadConfirmed === true) {
+      if (item.type !== 'photo') return res.status(400).json({ success: false, message: 'Only photos can be marked ready for cleanup.' });
+      if (!item.downloadCount) return res.status(409).json({ success: false, message: 'A client download must be requested before confirming cleanup.' });
+      updates.downloadConfirmedAt = new Date();
+    }
+    if (req.body.downloadConfirmed === false) updates.downloadConfirmedAt = null;
     const updated = await GalleryItem.findByIdAndUpdate(item._id, updates, { new: true, runValidators: true });
     res.json({ success: true, message: 'Media updated successfully.', data: updated });
   } catch (error) { next(error); }
@@ -199,6 +205,7 @@ async function deleteMedia(req, res, next) {
   try {
     const item = await GalleryItem.findById(req.params.itemId);
     if (!item || !(await Gallery.findOne({ _id: item.gallery, ...(await scopedFilter(req.user)) }))) return res.status(404).json({ success: false, message: 'Media not found.' });
+    if (item.type === 'photo' && (!item.downloadCount || !item.downloadConfirmedAt)) return res.status(409).json({ success: false, message: 'Confirm that the client finished downloading this photo before deleting it.' });
     const deleted = await deleteFile(item.objectKey || item.storageKey);
     if (!deleted && item.storageProvider === 'cloudflare-r2') return res.status(502).json({ success: false, message: 'The media file could not be removed from storage.' });
     await GalleryItem.findByIdAndDelete(item._id);

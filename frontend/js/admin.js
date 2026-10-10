@@ -110,9 +110,14 @@ async function setupNotificationCenter() {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.message || 'Request failed');
+  const response = await fetch(url, { credentials: 'same-origin', ...options });
+  const responseText = await response.text();
+  let result = {};
+  try { result = responseText ? JSON.parse(responseText) : {}; } catch (error) {}
+  if (!response.ok) {
+    const message = result.message || (response.status === 401 ? 'Your admin session has expired. Sign in again, then retry the upload.' : `Request failed (HTTP ${response.status}). The server may be unavailable or the upload may exceed its size limit.`);
+    throw new Error(message);
+  }
   return result.data || [];
 }
 
@@ -286,7 +291,7 @@ async function uploadCatalogImage(file, title, usage) {
 }
 
 function renderManagementList(container, items, type) {
-  const renderItem = (item) => `<div class="management-item">${item.image ? `<img src="${cmsEscape(item.image)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.name)}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><label class="management-image-upload">${item.image ? 'Replace image' : 'Upload image'}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-edit-image-type="${type}" data-edit-image-id="${item._id}" aria-label="${item.image ? 'Replace' : 'Upload'} image for ${cmsEscape(item.name)}"></label><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${cmsEscape(item.name)}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span></div>`;
+  const renderItem = (item) => `<div class="management-item">${item.image ? `<img src="${cmsEscape(item.image)}" alt="" width="64" height="48" loading="lazy">` : ''}<span><strong>${cmsEscape(item.name)}</strong><small>${type === 'service' ? item.category : `${item.service?.name || 'Service'} · ${item.price || 0} XAF`}</small></span><label class="management-image-upload">${item.image ? 'Replace image' : 'Upload image'}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-edit-image-type="${type}" data-edit-image-id="${item._id}" aria-label="${item.image ? 'Replace' : 'Upload'} image for ${cmsEscape(item.name)}"></label><span class="management-actions"><button data-edit-type="${type}" data-edit-id="${item._id}" data-edit-name="${cmsEscape(item.name)}" title="Edit">Edit</button><button data-toggle-type="${type}" data-toggle-id="${item._id}" data-toggle-active="${item.active}" title="Activate or deactivate">${item.active ? 'Deactivate' : 'Activate'}</button><button data-delete-type="${type}" data-delete-id="${item._id}" title="Delete">Delete</button></span><p class="management-status" data-catalog-image-status="${item._id}" aria-live="polite"></p></div>`;
   if (type === 'package' && items.length) {
     const groups = new Map();
     items.forEach((item) => {
@@ -311,7 +316,9 @@ function renderManagementList(container, items, type) {
       loadDashboardManagement();
     } catch (error) {
       if (uploadedAsset?._id) await requestJson(`/api/website/admin/media/${uploadedAsset._id}`, { method: 'DELETE' }).catch(() => {});
-      window.alert(error.message);
+      const status = input.closest('.management-item')?.querySelector('[data-catalog-image-status]');
+      if (status) status.textContent = error.message;
+      else window.alert(error.message);
       input.value = '';
     }
   }));
@@ -562,8 +569,24 @@ async function loadGalleryPanel(role) {
       const revisions = await requestJson(`/api/revisions/gallery/${button.dataset.galleryReview}`);
       const review = panel.querySelector('[data-gallery-review-panel]');
       review.innerHTML = `<div class="gallery-review"><h3>${gallery.title} · Selection: ${gallery.selectionStatus}</h3><form class="management-form" data-gallery-upload><input name="title" placeholder="Optional title prefix"><input name="caption" placeholder="Caption"><select name="category"><option value="portfolio">Portfolio</option><option value="photography">Photography</option><option value="videography">Videography</option><option value="weddings">Weddings</option><option value="portraits">Portraits</option><option value="events">Events</option><option value="fashion">Fashion</option><option value="commercial">Commercial</option></select><label>Select photos or videos<input name="file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple required></label><button class="admin-button" type="submit">Upload selected media</button><p class="management-status" aria-live="polite"></p></form><p>Selected: ${gallery.mediaStats.selected} · Approved: ${gallery.mediaStats.approved} · Total: ${gallery.mediaStats.total}</p><select data-gallery-filter><option value="all">All</option><option value="selected">Selected</option><option value="not-selected">Not Selected</option><option value="approved">Approved</option></select><div class="management-list" data-gallery-items></div><h3>Revision Requests</h3><div class="management-list">${revisions.length ? revisions.map((revision) => `<div class="management-item"><span><strong>${revision.galleryItem?.title || 'Media item'}</strong><small>${revision.message} · ${revision.status}</small></span><select data-revision-id="${revision._id}"><option ${revision.status === 'open' ? 'selected' : ''}>open</option><option ${revision.status === 'in-progress' ? 'selected' : ''}>in-progress</option><option ${revision.status === 'completed' ? 'selected' : ''}>completed</option><option ${revision.status === 'cancelled' ? 'selected' : ''}>cancelled</option></select></div>`).join('') : '<p class="management-empty">No revision requests.</p>'}</div></div>`;
-      const renderItems = (filter = 'all') => { const items = gallery.items.filter((item) => filter === 'all' || (filter === 'selected' && item.selected) || (filter === 'not-selected' && !item.selected) || (filter === 'approved' && item.approved)); review.querySelector('[data-gallery-items]').innerHTML = items.map((item) => `<div class="management-item"><span><strong>${item.title || 'Untitled media'}</strong><small>${item.type} · ${item.selected ? 'Selected' : 'Not selected'} · ${item.approved ? 'Approved' : 'Not approved'} · ${item.downloadable ? 'Downloadable' : 'Not downloadable'}</small></span><span class="management-actions"><button data-media-approve="${item._id}">${item.approved ? 'Approved' : 'Approve'}</button><button data-media-download="${item._id}">${item.downloadable ? 'Remove download' : 'Allow download'}</button></span></div>`).join('') || '<p class="management-empty">No media matches this filter.</p>'; };
+      const renderItems = (filter = 'all') => { const items = gallery.items.filter((item) => filter === 'all' || (filter === 'selected' && item.selected) || (filter === 'not-selected' && !item.selected) || (filter === 'approved' && item.approved)); review.querySelector('[data-gallery-items]').innerHTML = items.map((item) => { const downloadState = item.type !== 'photo' ? '' : item.downloadConfirmedAt ? ' · Client download confirmed' : item.downloadCount ? ` · ${item.downloadCount} download request${item.downloadCount === 1 ? '' : 's'} · Awaiting confirmation` : ' · No client download yet'; const cleanupActions = item.type === 'photo' && item.downloadCount ? `<button type="button" data-media-confirm-download="${item._id}" ${item.downloadConfirmedAt ? 'disabled' : ''}>${item.downloadConfirmedAt ? 'Download confirmed' : 'Confirm client has downloaded'}</button>${item.downloadConfirmedAt ? `<button type="button" data-media-delete="${item._id}">Delete photo</button>` : ''}` : ''; return `<div class="management-item"><span><strong>${cmsEscape(item.title || 'Untitled media')}</strong><small>${item.type} · ${item.selected ? 'Selected' : 'Not selected'} · ${item.approved ? 'Approved' : 'Not approved'} · ${item.downloadable ? 'Downloadable' : 'Not downloadable'}${downloadState}</small></span><span class="management-actions"><button data-media-approve="${item._id}">${item.approved ? 'Approved' : 'Approve'}</button><button data-media-download="${item._id}">${item.downloadable ? 'Remove download' : 'Allow download'}</button>${cleanupActions}</span><p class="management-status" data-media-cleanup-status="${item._id}" aria-live="polite"></p></div>`; }).join('') || '<p class="management-empty">No media matches this filter.</p>'; };
       renderItems();
+      const downloadRefresh = document.createElement('div');
+      downloadRefresh.className = 'gallery-download-refresh';
+      downloadRefresh.innerHTML = '<button type="button" data-gallery-download-refresh>Refresh client download status</button><p class="management-status" data-gallery-download-refresh-status aria-live="polite"></p>';
+      review.querySelector('[data-gallery-filter]').after(downloadRefresh);
+      downloadRefresh.querySelector('[data-gallery-download-refresh]').addEventListener('click', async (event) => {
+        event.currentTarget.disabled = true;
+        const status = downloadRefresh.querySelector('[data-gallery-download-refresh-status]');
+        status.textContent = 'Checking client downloads...';
+        try {
+          const refreshed = await requestJson(`/api/galleries/${gallery._id}`);
+          gallery.items = refreshed.items || [];
+          renderItems(review.querySelector('[data-gallery-filter]').value);
+          status.textContent = 'Download status refreshed.';
+        } catch (error) { status.textContent = error.message; }
+        finally { event.currentTarget.disabled = false; }
+      });
       const bulkActions = document.createElement('div');
       bulkActions.className = 'management-actions gallery-bulk-actions';
       bulkActions.innerHTML = '<button type="button" data-gallery-approve-all>Approve all</button><button type="button" data-gallery-download-all>Allow all downloads</button><p class="management-status" data-gallery-bulk-status aria-live="polite"></p>';
@@ -620,7 +643,31 @@ async function loadGalleryPanel(role) {
       });
       review.querySelector('[data-gallery-filter]').addEventListener('change', (event) => renderItems(event.target.value));
       review.querySelectorAll('[data-revision-id]').forEach((select) => select.addEventListener('change', async () => { await requestJson(`/api/revisions/${select.dataset.revisionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: select.value }) }); }));
-      review.addEventListener('click', async (event) => { const approve = event.target.closest('[data-media-approve]'); const download = event.target.closest('[data-media-download]'); const item = gallery.items.find((entry) => entry._id === (approve?.dataset.mediaApprove || download?.dataset.mediaDownload)); if (!item) return; const updates = approve ? { approved: true } : { downloadable: !item.downloadable }; await requestJson(`/api/galleries/${gallery._id}/media/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) }); item[approve ? 'approved' : 'downloadable'] = updates[approve ? 'approved' : 'downloadable']; renderItems(review.querySelector('[data-gallery-filter]').value); });
+      review.addEventListener('click', async (event) => {
+        const approve = event.target.closest('[data-media-approve]');
+        const download = event.target.closest('[data-media-download]');
+        const confirmDownload = event.target.closest('[data-media-confirm-download]');
+        const deletePhoto = event.target.closest('[data-media-delete]');
+        const itemId = approve?.dataset.mediaApprove || download?.dataset.mediaDownload || confirmDownload?.dataset.mediaConfirmDownload || deletePhoto?.dataset.mediaDelete;
+        const item = gallery.items.find((entry) => entry._id === itemId);
+        if (!item) return;
+        const status = review.querySelector(`[data-media-cleanup-status="${item._id}"]`);
+        try {
+          if (deletePhoto) {
+            if (!window.confirm(`Permanently delete ${item.title || 'this photo'} from storage? This is only available after you confirm the client downloaded it.`)) return;
+            await requestJson(`/api/galleries/${gallery._id}/media/${item._id}`, { method: 'DELETE' });
+            gallery.items = gallery.items.filter((entry) => entry._id !== item._id);
+            renderItems(review.querySelector('[data-gallery-filter]').value);
+            return;
+          }
+          const updates = confirmDownload ? { downloadConfirmed: true } : approve ? { approved: true } : { downloadable: !item.downloadable };
+          if (confirmDownload && !window.confirm(`Have you verified that the client finished downloading ${item.title || 'this photo'}? Confirming enables permanent deletion.`)) return;
+          const updated = await requestJson(`/api/galleries/${gallery._id}/media/${item._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+          if (confirmDownload) item.downloadConfirmedAt = updated.downloadConfirmedAt || new Date().toISOString();
+          else item[approve ? 'approved' : 'downloadable'] = updates[approve ? 'approved' : 'downloadable'];
+          renderItems(review.querySelector('[data-gallery-filter]').value);
+        } catch (error) { if (status) status.textContent = error.message; }
+      });
     }));
   } catch (error) { console.error(error); }
 }

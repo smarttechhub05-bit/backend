@@ -88,8 +88,9 @@ async function downloadItem(req, res, next) {
     if (!gallery) return res.status(404).json({ success: false, message: 'Gallery not found or access has expired.' });
     const item = await GalleryItem.findOne({ _id: req.params.itemId, gallery: gallery._id, downloadable: true }).select('editedFileUrl fileUrl objectKey storageKey storageProvider');
     if (!item) return res.status(404).json({ success: false, message: 'This media is not available for download.' });
-    if (item.storageProvider === 'cloudflare-r2') return res.redirect(await getSignedUrl(item.objectKey || item.storageKey));
-    res.redirect(item.editedFileUrl || item.fileUrl);
+    const downloadUrl = item.storageProvider === 'cloudflare-r2' ? await getSignedUrl(item.objectKey || item.storageKey) : (item.editedFileUrl || item.fileUrl);
+    await GalleryItem.updateOne({ _id: item._id, gallery: gallery._id }, { $inc: { downloadCount: 1 }, $set: { lastDownloadRequestedAt: new Date() } });
+    res.redirect(downloadUrl);
   } catch (error) { next(error); }
 }
 
