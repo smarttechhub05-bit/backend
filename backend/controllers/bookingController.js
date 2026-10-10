@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { Booking, Client, Service, Package, Project, Promotion } = require('../models');
 const { notifyManagers } = require('../services/notificationService');
-const { isPromotionCurrent, promotionAppliesToService, calculateDiscount } = require('../services/promotionPricing');
+const { isPromotionCurrent, getPromotionDiscountPercentage, promotionAppliesToService, calculateDiscount } = require('../services/promotionPricing');
 
 const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'];
 
@@ -88,7 +88,8 @@ async function createBooking(req, res, next) {
     if (req.body.promotion) {
       if (!mongoose.isValidObjectId(req.body.promotion)) return res.status(400).json({ success: false, message: 'Invalid promotion.' });
       promotion = await Promotion.findById(req.body.promotion).lean();
-      if (!isPromotionCurrent(promotion) || !promotionAppliesToService(promotion, references.service._id)) return res.status(409).json({ success: false, message: 'This promotion is no longer available for the selected service.' });
+      if (!isPromotionCurrent(promotion) || !getPromotionDiscountPercentage(promotion) || !promotionAppliesToService(promotion, references.service._id)) return res.status(409).json({ success: false, message: 'This promotion is no longer available for the selected service.' });
+      promotion.discountPercentage = getPromotionDiscountPercentage(promotion);
     }
     const originalPrice = references.package ? references.package.price : references.service.price;
     const pricingSnapshot = {

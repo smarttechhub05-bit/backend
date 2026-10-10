@@ -1,13 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isPromotionCurrent, promotionAppliesToService, calculateDiscount } = require('../services/promotionPricing');
+const { isPromotionCurrent, getPromotionDiscountPercentage, normalizePromotion, promotionAppliesToService, calculateDiscount } = require('../services/promotionPricing');
 
 test('promotion date and publication state determine whether it is current', () => {
   const now = new Date('2026-10-10T12:00:00Z');
   assert.equal(isPromotionCurrent({ active: true, published: true, discountPercentage: 20, startDate: '2026-10-01', endDate: '2026-10-20' }, now), true);
   assert.equal(isPromotionCurrent({ active: true, published: false, discountPercentage: 20 }, now), false);
   assert.equal(isPromotionCurrent({ active: true, published: true, discountPercentage: 20, endDate: '2026-10-09' }, now), false);
-  assert.equal(isPromotionCurrent({ active: true, published: true, discountPercentage: 0 }, now), false);
+  assert.equal(isPromotionCurrent({ active: true, published: true, discountPercentage: 0 }, now), true);
+});
+
+test('legacy promotion descriptions preserve explicit percentage discounts', () => {
+  const legacy = { active: true, published: true, description: '30% reduction of all services within this period.' };
+  assert.equal(getPromotionDiscountPercentage(legacy), 30);
+  assert.equal(normalizePromotion(legacy).serviceScope, 'all');
+  assert.equal(getPromotionDiscountPercentage({ description: 'Special offer this month.' }), 0);
 });
 
 test('all-service and selected-service promotion eligibility is enforced', () => {

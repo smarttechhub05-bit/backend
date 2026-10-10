@@ -332,7 +332,7 @@ async function loadServicesPage() {
   try {
     const [services, packages, publicContent] = await Promise.all([getJson('/api/services'), getJson('/api/packages'), getJson('/api/website/public/content')]);
     const requestedPromotion = new URLSearchParams(window.location.search).get('promotion');
-    const promotion = publicContent.promotions?.find((item) => item._id === requestedPromotion);
+    const promotion = publicContent.promotions?.find((item) => item._id === requestedPromotion && Number(item.discountPercentage) > 0);
     if (services.length) grid.innerHTML = services.map((service) => {
       const applies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === String(service._id)));
       return serviceCard(service, packages, applies ? promotion : null);
@@ -375,7 +375,7 @@ async function loadBookingOptions() {
   try {
     const services = await getJson('/api/services');
     const [packages, publicContent] = await Promise.all([getJson('/api/packages'), getJson('/api/website/public/content')]);
-    const promotion = publicContent.promotions?.find((item) => item._id === promotionId);
+    const promotion = publicContent.promotions?.find((item) => item._id === promotionId && Number(item.discountPercentage) > 0);
     const priceLabel = (price, applies) => applies && promotion ? `${Math.round(price * (100 - promotion.discountPercentage) / 100).toLocaleString()} XAF (${promotion.discountPercentage}% off; was ${price.toLocaleString()} XAF)` : `${price.toLocaleString()} XAF`;
     serviceSelect.innerHTML = '<option value="">Choose a service</option>' + services.map((item) => { const applies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === String(item._id))); return `<option value="${item._id}">${item.name}${item.price ? ` - ${priceLabel(item.price, applies)}` : ''}${item.duration ? ` (${item.duration})` : ''}</option>`; }).join('');
     const updatePackages = () => {
