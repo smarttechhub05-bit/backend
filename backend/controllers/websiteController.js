@@ -94,8 +94,10 @@ async function getPublicContent(req, res, next) {
     const resolveMediaUrl = async (url, provider, key) => provider === 'cloudflare-r2' && key ? generateSignedUrl(key) : safeUrl(url);
     const galleryPortfolio = await Promise.all(publicGalleries.map(async (gallery) => ({ ...gallery, coverImage: safeUrl(gallery.coverImage), items: await Promise.all((await GalleryItem.find({ gallery: gallery._id }).select('type fileUrl thumbnailUrl title description altText category mimeType storageProvider objectKey storageKey').sort({ createdAt: 1 }).limit(12).lean()).map(async (item) => ({ ...item, fileUrl: await resolveMediaUrl(item.fileUrl, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.thumbnailUrl, item.storageProvider, item.objectKey || item.storageKey) }))) })));
     const mediaPublicUrl = (value) => {
-      const match = String(value || '').match(/^media:([a-f\d]{24})$/i);
-      return match ? `/api/website/public/media/${match[1]}` : safeUrl(value);
+      const url = String(value || '').trim();
+      const mediaMatch = url.match(/^media:([a-f\d]{24})$/i) || url.match(/^\/?api\/website\/public\/media\/([a-f\d]{24})$/i) || url.match(/^https?:\/\/[^\s/]+\/api\/website\/public\/media\/([a-f\d]{24})$/i);
+      if (mediaMatch) return `/api/website/public/media/${mediaMatch[1]}`;
+      return safeUrl(url);
     };
     const normalizeHomepageMedia = (section) => ({
       ...section,

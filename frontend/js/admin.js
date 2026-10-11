@@ -192,23 +192,21 @@ async function loadWebsitePanel(role) {
       if (!field) return;
       const editor = document.createElement('div');
       editor.className = 'cms-image-editor';
-      editor.innerHTML = `<strong>${labelText}</strong><img class="cms-image-preview" alt="${cmsEscape(labelText)}"><select name="${fieldName}" aria-label="Choose ${cmsEscape(labelText)}"><option value="">Use local site photo</option></select><label>Upload replacement<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-cms-image-upload></label><small class="management-hint">Upload JPG, PNG, or WebP up to 15 MB, or choose an image already in the media library.</small>`;
-      const select = editor.querySelector('select');
+      editor.innerHTML = `<strong>${labelText}</strong><img class="cms-image-preview" alt="${cmsEscape(labelText)}"><label>Upload image<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-cms-image-upload></label><small class="management-hint">Upload JPG, PNG, or WebP up to 15 MB. The image is saved directly from your device.</small>`;
+      const valueField = document.createElement('input');
+      valueField.type = 'hidden';
+      valueField.name = fieldName;
+      valueField.value = currentValue || '';
+      editor.appendChild(valueField);
       const preview = editor.querySelector('.cms-image-preview');
       const fileInput = editor.querySelector('[data-cms-image-upload]');
       const localFallback = `assets/images/${fallback}`;
       const setSelection = (url) => {
-        select.value = url || '';
+        valueField.value = url || '';
         const imageUrl = url?.startsWith('media:') ? `/api/website/public/media/${url.slice(6)}` : url;
         preview.src = imageUrl && !/^(?:javascript|data):/i.test(imageUrl) ? imageUrl : localFallback;
       };
-      media.filter((item) => item.mimeType.startsWith('image/')).forEach((asset) => {
-        const option = new Option(asset.title, asset.publicUrl || `/api/website/public/media/${asset._id}`);
-        select.appendChild(option);
-      });
-      if (currentValue && ![...select.options].some((option) => option.value === currentValue)) select.appendChild(new Option('Current saved image', currentValue));
       setSelection(currentValue || '');
-      select.addEventListener('change', () => setSelection(select.value));
       fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
@@ -219,8 +217,7 @@ async function loadWebsitePanel(role) {
           const asset = await uploadCatalogImage(file, labelText, usage);
           media.unshift(asset);
           renderMedia(media);
-          const url = asset.publicUrl || `/api/website/public/media/${asset._id}`;
-          if (![...select.options].some((option) => option.value === url)) select.appendChild(new Option(asset.title, url));
+          const url = `media:${asset._id}`;
           setSelection(url);
           currentStatus.textContent = `${labelText} updated. Save Website Content to publish it.`;
         } catch (error) { currentStatus.textContent = error.message; }
@@ -234,7 +231,7 @@ async function loadWebsitePanel(role) {
         const select = editor.querySelector('select');
         const selectedValue = select.value;
         media.filter((item) => item.mimeType.startsWith('image/')).forEach((asset) => {
-          const url = asset.publicUrl || `/api/website/public/media/${asset._id}`;
+          const url = `media:${asset._id}`;
           if (![...select.options].some((option) => option.value === url)) select.appendChild(new Option(asset.title, url));
         });
         select.value = selectedValue;

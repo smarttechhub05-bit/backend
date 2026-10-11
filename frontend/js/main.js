@@ -67,7 +67,7 @@ function setText(selector, value) {
 
 function siteImage(value, fallback) {
   const rawValue = String(value || '').trim();
-  const mediaMatch = rawValue.match(/^media:([a-f\d]{24})$/i);
+  const mediaMatch = rawValue.match(/^media:([a-f\d]{24})$/i) || rawValue.match(/^\/?api\/website\/public\/media\/([a-f\d]{24})$/i) || rawValue.match(/^https?:\/\/[^\s/]+\/api\/website\/public\/media\/([a-f\d]{24})$/i);
   const imageUrl = mediaMatch ? `/api/website/public/media/${mediaMatch[1]}` : rawValue;
   if (!imageUrl || /^(?:javascript|data):/i.test(imageUrl)) return fallback;
   return imageUrl;
@@ -261,10 +261,12 @@ async function loadPublicContent() {
           return name === cardName || aliases.some((alias) => name.includes(alias) || category === alias);
         });
         const catalogImage = catalogService?.image;
-        const imageSource = serviceImages[index] || catalogImage;
+        const imageSource = catalogImage || serviceImages[index];
         if (imageSource) {
           image.src = siteImage(imageSource, image.src);
-          image.onerror = () => { image.onerror = null; image.src = `assets/images/${['couple-portrait.jpeg', 'studio.jpeg', 'fashion-portrait.jpeg', 'ceo.jpeg'][index] || 'studio.jpeg'}`; };
+          image.onerror = () => { image.onerror = null; image.src = siteImage(catalogImage || serviceImages[index], 'assets/images/studio.jpeg'); };
+        } else {
+          image.removeAttribute('src');
         }
       });
       const testimonialGrid = document.querySelector('.testimonial-grid');
