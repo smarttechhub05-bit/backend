@@ -66,7 +66,9 @@ function setText(selector, value) {
 }
 
 function siteImage(value, fallback) {
-  const imageUrl = String(value || '').trim();
+  const rawValue = String(value || '').trim();
+  const mediaMatch = rawValue.match(/^media:([a-f\d]{24})$/i);
+  const imageUrl = mediaMatch ? `/api/website/public/media/${mediaMatch[1]}` : rawValue;
   if (!imageUrl || /^(?:javascript|data):/i.test(imageUrl)) return fallback;
   return imageUrl;
 }

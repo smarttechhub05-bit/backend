@@ -97,10 +97,19 @@ async function getPublicContent(req, res, next) {
       const match = String(value || '').match(/^media:([a-f\d]{24})$/i);
       return match ? `/api/website/public/media/${match[1]}` : safeUrl(value);
     };
+    const normalizeHomepageMedia = (section) => ({
+      ...section,
+      heroImage: mediaPublicUrl(section?.heroImage),
+      aboutImage: mediaPublicUrl(section?.aboutImage),
+      photographyImage: mediaPublicUrl(section?.photographyImage),
+      videographyImage: mediaPublicUrl(section?.videographyImage),
+      eventsImage: mediaPublicUrl(section?.eventsImage),
+      contentCreationImage: mediaPublicUrl(section?.contentCreationImage)
+    });
     const publicTestimonials = testimonials.map((item) => ({ ...item, clientImage: mediaPublicUrl(item.clientImage) }));
     const publicPromotions = promotions.filter((item) => isPromotionCurrent(item, now)).map((item) => ({ ...normalizePromotion(item), image: mediaPublicUrl(item.image) }));
     const portfolio = [...galleryPortfolio, ...(portfolioMedia.length ? [{ title: 'Portfolio', description: '', project: null, items: await Promise.all(portfolioMedia.map(async (item) => ({ title: item.title, caption: item.caption, description: item.description, altText: item.altText, category: item.category, type: item.mimeType.startsWith('video/') ? 'video' : 'photo', fileUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), thumbnailUrl: await resolveMediaUrl(item.url, item.storageProvider, item.objectKey || item.storageKey), createdAt: item.createdAt }))) }] : [])];
-    res.json({ success: true, data: { settings: { ...settings, updatedBy: undefined }, testimonials: publicTestimonials, promotions: publicPromotions, services, packages, portfolio } });
+    res.json({ success: true, data: { settings: { ...settings, homepage: normalizeHomepageMedia(settings.homepage), about: { ...settings.about, image: mediaPublicUrl(settings.about?.image) }, updatedBy: undefined }, testimonials: publicTestimonials, promotions: publicPromotions, services, packages, portfolio } });
   } catch (error) { next(error); }
 }
 

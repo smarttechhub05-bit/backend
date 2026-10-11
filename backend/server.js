@@ -1,6 +1,6 @@
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -22,8 +22,6 @@ const websiteRoutes = require('./routes/website');
 const notificationRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 const contactRoutes = require('./routes/contact');
-
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 const port = process.env.PORT || 3000;

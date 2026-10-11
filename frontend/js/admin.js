@@ -110,7 +110,21 @@ async function setupNotificationCenter() {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, { credentials: 'same-origin', ...options });
+  const method = String(options.method || 'GET').toUpperCase();
+  const requestOptions = { credentials: 'same-origin', ...options };
+  if (method === 'GET') {
+    const requestUrl = new URL(url, window.location.origin);
+    requestUrl.searchParams.set('_', Date.now());
+    requestOptions.cache = 'no-store';
+    requestOptions.headers = {
+      ...requestOptions.headers,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+    url = requestUrl.toString();
+  }
+  const response = await fetch(url, requestOptions);
   const responseText = await response.text();
   let result = {};
   try { result = responseText ? JSON.parse(responseText) : {}; } catch (error) {}
