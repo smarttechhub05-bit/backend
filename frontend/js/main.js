@@ -45,7 +45,16 @@ if (menuToggle && navLinks) {
 }
 
 async function getJson(url) {
-  const response = await fetch(url);
+  const requestUrl = new URL(url, window.location.href);
+  requestUrl.searchParams.set('_', Date.now());
+  const response = await fetch(requestUrl.toString(), {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  });
   const result = await response.json();
   if (!response.ok) throw new Error(result.message || 'Request failed');
   return result.data || [];
@@ -349,6 +358,12 @@ async function loadServicesPage() {
     const [services, packages, publicContent] = await Promise.all([getJson('/api/services'), getJson('/api/packages'), getJson('/api/website/public/content')]);
     const requestedPromotion = new URLSearchParams(window.location.search).get('promotion');
     const promotion = publicContent.promotions?.find((item) => item._id === requestedPromotion && Number(item.discountPercentage) > 0);
+    const socialContentService = services.find((service) => /social media content|content creation/i.test(service.name || ''));
+    const lowerImage = document.querySelector('.about-image');
+    if (lowerImage && socialContentService?.image) {
+      lowerImage.src = siteImage(socialContentService.image, lowerImage.src);
+      lowerImage.alt = socialContentService.name || 'Social Media Content Creation';
+    }
     if (services.length) grid.innerHTML = services.map((service) => {
       const applies = promotion && (promotion.serviceScope !== 'selected' || promotion.services?.some((id) => String(id?._id || id) === String(service._id)));
       return serviceCard(service, packages, applies ? promotion : null);
