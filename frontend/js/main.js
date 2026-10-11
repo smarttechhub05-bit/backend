@@ -261,7 +261,7 @@ async function loadPublicContent() {
           return name === cardName || aliases.some((alias) => name.includes(alias) || category === alias);
         });
         const catalogImage = catalogService?.image;
-        const imageSource = catalogImage || serviceImages[index];
+        const imageSource = serviceImages[index] || catalogImage;
         if (imageSource) {
           image.src = siteImage(imageSource, image.src);
           image.onerror = () => { image.onerror = null; image.src = siteImage(catalogImage || serviceImages[index], 'assets/images/studio.jpeg'); };
